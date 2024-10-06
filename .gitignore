@@ -23,3 +23,7 @@ venv/
 
 # Archivos de caché de herramientas
 .cache/
+
+
+# Modelos entrenados
+*.pkl
