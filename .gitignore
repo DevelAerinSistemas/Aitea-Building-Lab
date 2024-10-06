@@ -27,3 +27,6 @@ venv/
 
 # Modelos entrenados
 *.pkl
+
+# Cosas de los binarios
+*.pyi
