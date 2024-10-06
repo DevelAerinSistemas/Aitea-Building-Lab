@@ -1,0 +1,25 @@
+# Archivos y directorios de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Entornos virtuales
+venv/
+.env/
+
+# Archivos de configuración
+*.env
+*.ini
+*.cfg
+
+# Archivos de logs
+*.log
+
+# Archivos de bases de datos
+*.sqlite3
+
+# Archivos de Jupyter Notebook
+.ipynb_checkpoints/
+
+# Archivos de caché de herramientas
+.cache/
