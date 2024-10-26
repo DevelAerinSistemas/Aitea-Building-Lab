@@ -16,10 +16,13 @@ from typing import Any
 import importlib
 from loguru import logger
 import pandas as pd
+import subprocess
+
 
 from database_tools.influxdb import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
 from utils.data_utils import synchronization_and_optimization
+from exceptions.fit_exception import InsufficientDataError
 
 
 class PipelineManager(object):
@@ -88,6 +91,7 @@ class PipelineManager(object):
             logger.error(f"Unexpected error: {e}")
         return instance
 
+
 class PipelineExecutor(PipelineManager):
     def __init__(self, configuration_definition_file: str, total_processing: int = 4):
         super().__init__(configuration_definition_file)
@@ -97,7 +101,7 @@ class PipelineExecutor(PipelineManager):
             influx = InfluxDBConnector()
             _, _ = influx.connect(True)
             pipes_data["connection"] = influx
-        
+
     def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
         query_buckets = copy.deepcopy(pipe_data.get("training_query"))
         buckets = query_buckets.get("bucket", {}).get("bucket")
@@ -107,16 +111,18 @@ class PipelineExecutor(PipelineManager):
         if isinstance(buckets, list):
             for bucket in buckets:
                 query_buckets["bucket"]["bucket"] = bucket
+                logger.info(f" Start query in  {bucket}")
                 stream_data = influx_connection.request_query(
-                query_dict=query_buckets, pandas=True)
+                    query_dict=query_buckets, pandas=True, stream=True)
                 dataframe = synchronization_and_optimization(
-                stream_data=stream_data)
+                    stream_data=stream_data)
                 if dataframe is None:
-                    continue 
+                    continue
+                logger.info(f" End query in {bucket}")
                 dataframe["building"] = bucket
                 dataframe_list.append(dataframe)
             if len(dataframe_list) > 0:
-                total_dataframe = pd.concat(dataframe_list) 
+                total_dataframe = pd.concat(dataframe_list)
         return total_dataframe
 
     def pipes_executor(self):
@@ -129,21 +135,50 @@ class PipelineExecutor(PipelineManager):
                     logger.warning("Empty data, can't do training")
                     continue
                 else:
-                    pipe_core = {"name": pipe_name, "pipe": pipe_info.get("pipe"), "training_query":  pipe_info.get("training_query")}
+                    pipe_core = {"name": pipe_name, "pipe": pipe_info.get(
+                        "pipe"), "training_query":  pipe_info.get("training_query")}
                     pool.apply_async(lab_fit, args=(data, pipe_core,),
                                      callback=self.task_handler)
-                    logger.info(f"Geting fit to {pipe_name}")                    
+                    logger.info(f"Geting fit to {pipe_name}")
             pool.close()
             pool.join()
 
     def task_handler(self, result):
-        logger.info(f"End pipe fit. It is saved {result}")
-        pipe_save(result)
+        if result == "InsufficientDataError":
+            logger.critical(f" Not enough data to train")
+        elif result == "KeyError":
+            logger.critical(f" The pipe is malformed, keys are missing")
+        else:
+            pipe_save(result)
+            logger.info(f" End pipe fit. It is saved {result}")
+            self.create_so()
 
     def error_handler(self, result):
         logger.error(f"Error in fit {result}")
 
+    def create_so(self):
+        command = [
+            "/opt/VirtualEnv/virtualAiteaBuildingLab/bin/nuitka",
+            "--module", "execution/executor.py",
+            "--include-package=models_warehouse",
+            "--include-package=metaclass",
+            "--include-package=utils",
+            "--show-modules",
+            "--output-dir=lib",
+            "--remove-output"
+        ]
+        try:
+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            logger.info(f" Output: {result.stdout}")
+            if result.stderr:
+                logger.error(f"Error Output: {result.stderr}")
+        except  subprocess.CalledProcessError as err:
+            logger.error(f"Error Output: {err}")
+
+        
+
+
 
 if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_test.json")
+    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json")
     pipe.pipes_executor()
