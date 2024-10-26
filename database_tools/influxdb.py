@@ -63,7 +63,7 @@ class InfluxDBConnector(object):
             try:
                 url = "http://" + self.host + ":" + str(self.port)
                 self.influx_client = InfluxDBClient(
-                    url=url, org=self.org, token=self.token)
+                    url=url, org=self.org, token=self.token, timeout=20000)
                 self.am_bucket_api = BucketsApi(self.influx_client)
                 self.influx_client_writer = self.influx_client.write_api(
                     write_options=SYNCHRONOUS)
@@ -228,7 +228,7 @@ class InfluxDBConnector(object):
     
     
     @logger.catch()
-    def query(self, query: str, schema: bool = False, pandas: bool = False) -> Union[list, pd.DataFrame]:
+    def query(self, query: str, schema: bool = False, pandas: bool = False, stream: bool = False) -> Union[list, pd.DataFrame]:
         """Make a influx simple query
 
         Args:
@@ -238,40 +238,54 @@ class InfluxDBConnector(object):
         Returns:
             Union[list, pd.DataFrame]: All records in list or in a dataframe
         """
-
         query_api = self.influx_client.query_api()
         if pandas:
-            results = None
-            try:
-                result = query_api.query_data_frame_stream(query=query)
-            except Exception as err:
-                logger.error(f"Influx query exception {err}")
-            else:
-                if isinstance(result, list):
-                    results = pd.concat(result)
-                else:
-                    results = result
+            results = self._query_pandas(query_api, query, stream)
         else:
-            results = list()
-            try:
-                result = query_api.query(query=query)
-            except Exception as err:
-                logger.error(f"Influx query exception {err}")
-                result = []
-            for table in result:
-                for record in table.records:
-                    if schema:
-                        results.append(record.get_value())
-                    else:
-                        results.append(
-                            (record.get_field(), record.get_value(), record.get_time()))    
+            results = self._query_list(query_api, query, schema)
         return results
     
     @logger.catch()
-    def request_query(self, query_dict: dict, pandas: bool = True):
+    def _query_pandas(self, query_api, query: str, stream: bool) -> pd.DataFrame:
+        results = None
+        try:
+            if stream:
+                result = query_api.query_data_frame_stream(query=query) 
+            else:
+                result = query_api.query_data_frame(query=query)
+        except Exception as err:
+            logger.error(f"Influx query exception {err}")
+        else:
+            if isinstance(result, list):
+                results = pd.concat(result)
+            else:
+                results = result
+        return results
+
+    @logger.catch()
+    def _query_list(self, query_api, query: str, schema: bool = False) -> list:
+        results = list()
+        try:
+            result = query_api.query_data_frame(query=query)
+        except Exception as err:
+            logger.error(f"Influx query exception {err}")
+            result = []
+        for table in result:
+            time.sleep(10)
+            for record in table.records:
+                if schema:
+                    results.append(record.get_value())
+                else:
+                    results.append(
+                        (record.get_field(), record.get_value(), record.get_time()))
+        return results
+
+    
+    @logger.catch()
+    def request_query(self, query_dict: dict, pandas: bool = True, stream = False):
         influx_query = self.compose_influx_query_from_dict(arguments_dict=query_dict)
         logger.info(f"Requesting a query with the following influx query language {influx_query}")
-        data_answer = self.query(query=influx_query, pandas=pandas)
+        data_answer = self.query(query=influx_query, pandas=pandas, stream=stream)
         return data_answer
 
     @logger.catch()
@@ -289,9 +303,16 @@ class InfluxDBConnector(object):
             if key == "range":
                 value = self.to_unix_time(value)
             if isinstance(value, list):
-                for one_value in value:
-                    one_template = self.queries[key].format(**one_value)
-                    query += "\n" + one_template
+                query += "\n|> filter(fn: (r) =>"
+                size_list = len(value)
+                for pos, one_value in enumerate(value):
+                    q = self.queries[key].replace("|> filter(fn: (r) =>", "")
+                    q = q.replace(")", "")
+                    one_template = q.format(**one_value)
+                    query += one_template
+                    if pos < size_list - 1:
+                        query += " or "
+                query += ")"
             else:
                 one_template = self.queries[key].format(**value)
                 query += "\n" + one_template
@@ -318,5 +339,4 @@ if __name__ == "__main__":
     influx = InfluxDBConnector()
     _, _ = influx.connect(True)
     data = influx.request_query(query_dict=query, pandas=True) 
-    print(data.dtypes)
     influx.close()
