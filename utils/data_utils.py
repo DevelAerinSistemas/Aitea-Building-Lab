@@ -25,10 +25,10 @@ def synchronization_and_optimization(stream_data: pd.DataFrame) -> pd.DataFrame:
     for one_data in stream_data:
         one_data["_value"] = one_data["_value"].astype('float32') 
         df_selected = one_data.reset_index(
-        )[['_time', 'system_id', 'floor', '_field', '_value']]
+        )[['_time', 'system_id', 'floor', '_field', '_value', 'equipment_number']]
         df_pivot = df_selected.pivot_table(
         # Las columnas que mantendremos como índice
-        index=['_time', 'system_id', 'floor'],
+        index=['_time', 'system_id', 'floor', 'equipment_number'],
         # La columna cuyos valores se convertirán en nuevas columnas
         columns='_field',
         values='_value',                        # Los valores de las nuevas columnas
@@ -40,7 +40,7 @@ def synchronization_and_optimization(stream_data: pd.DataFrame) -> pd.DataFrame:
         data_pivot_all["_time"] = data_pivot_all['_time'].dt.ceil('min')
         data_pivot_all["_time"] = data_pivot_all['_time'].dt.round('5min')
         data_pivot_all = data_pivot_all.groupby(
-            ['_time', 'system_id', 'floor']).mean().reset_index()
+            ['_time', 'system_id', 'floor', 'equipment_number']).mean().reset_index()
         total_nan =  data_pivot_all.isna().sum().sum()
         logger.info(f"Total number of NaN's after synchronization: {total_nan} in {data_pivot_all.shape}")
         data_pivot_all = fill_nan(data_pivot_all)
@@ -50,7 +50,7 @@ def synchronization_and_optimization(stream_data: pd.DataFrame) -> pd.DataFrame:
         data_pivot_all["_time"] = data_pivot_all['_time'].astype('int64') // 10**9 
         for one_column in data_pivot_all.columns:
             if not one_column in ["_time",]:
-                if one_column in ["floor", "system_id"]:
+                if one_column in ["floor", "system_id", "equipment_number"]:
                     data_pivot_all[one_column] = data_pivot_all[one_column].astype('category')
                 elif one_column not in ["room_temperature", "setpoint_temperature"]:
                     data_pivot_all[one_column] = data_pivot_all[one_column].astype('int8')
