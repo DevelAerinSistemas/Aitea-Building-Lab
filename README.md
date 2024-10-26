@@ -12,6 +12,6 @@ La herramienta tambien proporciona la posibilidad de convertir los modelos ONNX 
 
 
 # Compilación usando Nuitka
-nuitka --module aitea-building-lab/execution/testing_tool.py  --include-package=models_warehouse --include-package=metaclass --include-package=utils   --show-modules
+nuitka --module execution/testing_tool.py  --include-package=models_warehouse --include-package=metaclass --include-package=utils   --show-modules
 
 
