@@ -4,10 +4,12 @@
     "range": "|> range(start: {start}, stop: {stop})",
     "filter_measurement": "|> filter(fn: (r) => r._measurement == \"{measurement}\")",
     "filter_not_measurement": "|> filter(fn: (r) => r._measurement != \"{measurement}\")",
-    "filter_tag": "|> filter(fn: (r) => r._field == \"{field}\")",
-    "filter_not_tag": "|> filter(fn: (r) => r._field != \"{field}\")",
-    "tag_is": "|> filter(fn: (r) => r.{tag_name} == \"{tag_value}\")",
+    "filter_field": "|> filter(fn: (r) => r._field == \"{field}\")",
+    "filter_not_field": "|> filter(fn: (r) => r._field != \"{field}\")",
+    "tag_is": "|> filter(fn: (r) => r[\"{tag_name}\"] == \"{tag_value}\")",
     "tag_is_not": "|> filter(fn: (r) => r.{tag_name} != \"{tag_value}\")",
+    "keep_columns": "|> keep(columns: {columns})",
     "schema": "import \"influxdata/influxdb/schema\" \nschema.fieldKeys(bucket: \"{schema_bucket}\", start: -100d)"
     
 }
+
