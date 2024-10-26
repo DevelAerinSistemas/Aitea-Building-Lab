@@ -15,6 +15,7 @@ from datetime import datetime
 import dill
 
 
+
 def read_json_schedule_plan(path: str) -> dict:
     """Read a json to have an execution plan, check if it has the basic configuration
 
@@ -66,11 +67,13 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict):
         query = pipe_core["training_query"]
         name = pipe_core["name"]
         try:
+            logger.info("Start fit")
             pipe.fit(data)
         except Exception as err:
-            return err
+            logger.error(f" Fail fit {err}")
+            return "InsufficientDataError"
     except Exception as err:
-        return err
+        return "KeyError"
     training_pipe = {"pipe_name": name, "pipe": pipe, "training_query": query,  "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     return training_pipe
 
