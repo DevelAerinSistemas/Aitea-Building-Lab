@@ -238,11 +238,15 @@ class InfluxDBConnector(object):
         Returns:
             Union[list, pd.DataFrame]: All records in list or in a dataframe
         """
+        time_i = time.time()
+        logger.info("Starting the search and transformation")
         query_api = self.influx_client.query_api()
         if pandas:
             results = self._query_pandas(query_api, query, stream)
+            logger.info(f"Finishing search and finishing the transformation to pandas in {time.time() - time_i}")
         else:
             results = self._query_list(query_api, query, schema)
+            logger.info(f"Finishing search and finishing the transformation to list in {time.time() - time_i}")
         return results
     
     @logger.catch()
