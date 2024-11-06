@@ -9,6 +9,7 @@
  '''
 
 import json
+import time
 from loguru import logger
 import pandas as pd
 from datetime import datetime
@@ -61,6 +62,16 @@ def check_configure(data_json: dict) -> bool:
 
 
 def lab_fit(data: pd.DataFrame, pipe_core: dict):
+    """Make a pipe fit
+
+    Args:
+        data (pd.DataFrame): Data
+        pipe_core (dict): Pipe core 
+
+    Returns:
+        _type_: A fit pipe
+    """
+    timi_i = time.time()
     logger.info(f"Starting pipe fitting for {pipe_core}")
     try:
         pipe = pipe_core["pipe"]
@@ -75,9 +86,15 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict):
     except Exception as err:
         return "KeyError"
     training_pipe = {"pipe_name": name, "pipe": pipe, "training_query": query,  "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    logger.info(f"Enf pipe fitting for {pipe_core} in {time.time() - timi_i}")
     return training_pipe
 
 def pipe_save(pipe_data:dict):
+    """Save a pipe
+
+    Args:
+        pipe_data (dict): Pipe dict, info + pipe core
+    """
     dill.settings['recurse'] = True
     name = pipe_data.get("pipe_name")
     path = "training_models/" + name + ".pkl"
@@ -85,6 +102,14 @@ def pipe_save(pipe_data:dict):
         dill.dump(pipe_data, f)
 
 def load_pipe(path: str):
+    """Load a pipe 
+
+    Args:
+        path (str): Pipe path file
+
+    Returns:
+        _type_: Pipe
+    """
     pipeline = None
     with open(path, "rb") as f:
         pipeline = dill.load(f)
