@@ -14,7 +14,7 @@ from loguru import logger
 
 from database_tools.influxdb import InfluxDBConnector
 from lib import executor
-
+from utils.data_utils import synchronization_and_optimization
 
 
 class SOManager(object):
@@ -30,7 +30,6 @@ class SOManager(object):
         if not query_buckets:
             query_buckets = self.exec.get_query()
         buckets = query_buckets.get("bucket", {}).get("bucket")
-        print(query_buckets)
         dataframe_list = list()
         total_dataframe = None
         if self.flag_connection:
@@ -41,7 +40,7 @@ class SOManager(object):
                     query_buckets["range"]["stop"] = date_ranges[1]
                     stream_data = self.influx.request_query(
                     query_dict=query_buckets, pandas=True)
-                    dataframe = self.exec.synchronization_and_optimization(stream_data)
+                    dataframe = synchronization_and_optimization(stream_data)
                     if dataframe.empty:
                         logger.error(f"Empty search, nothing to do for this bucket {bucket}.")
                         continue
@@ -69,9 +68,8 @@ class SOManager(object):
 
 
 if __name__ == "__main__":
-    exec = SOManager("training_models/alfonso_xii_62_temp_confort.pkl")
+    exec = SOManager("training_models/temperature_confort.pkl")
     dataframe = exec.generate_dataframe(date_ranges=["2024-09-07T10:00:00.000Z", "2024-09-07T12:00:00.000Z"])
-    print(exec.exec_transform(dataframe))
 
 
 
