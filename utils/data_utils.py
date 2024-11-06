@@ -37,8 +37,8 @@ def synchronization_and_optimization(stream_data: pd.DataFrame) -> pd.DataFrame:
         dataframe_list.append(df_pivot)
     if len(dataframe_list) > 0:
         data_pivot_all = pd.concat(dataframe_list, ignore_index=True)
-        data_pivot_all["_time"] = data_pivot_all['_time'].dt.ceil('min')
-        data_pivot_all["_time"] = data_pivot_all['_time'].dt.round('5min')
+        data_pivot_all.loc[:, "_time"] = data_pivot_all['_time'].dt.ceil('min')
+        data_pivot_all.loc[:, "_time"] = data_pivot_all['_time'].dt.round('5min')
         data_pivot_all = data_pivot_all.groupby(
             ['_time', 'system_id', 'floor', 'equipment_number']).mean().reset_index()
         total_nan =  data_pivot_all.isna().sum().sum()
@@ -47,15 +47,15 @@ def synchronization_and_optimization(stream_data: pd.DataFrame) -> pd.DataFrame:
         total_nan =  data_pivot_all.isna().sum().sum()
         logger.info(f"Total number of NaN's after synchronization: {total_nan} in {data_pivot_all.shape}")
         data_pivot_all = data_pivot_all.dropna()
-        data_pivot_all["_time"] = data_pivot_all['_time'].astype('int64') // 10**9 
+        data_pivot_all.loc[:, "_time"] = data_pivot_all['_time'].astype('int64') // 10**9 
         for one_column in data_pivot_all.columns:
             if not one_column in ["_time",]:
                 if one_column in ["floor", "system_id", "equipment_number"]:
-                    data_pivot_all[one_column] = data_pivot_all[one_column].astype('category')
+                    data_pivot_all.loc[:, one_column] = data_pivot_all[one_column].astype('category')
                 elif one_column not in ["room_temperature", "setpoint_temperature"]:
-                    data_pivot_all[one_column] = data_pivot_all[one_column].astype('int8')
+                    data_pivot_all.loc[:, one_column] = data_pivot_all[one_column].astype('int8')
                 else:
-                    data_pivot_all[one_column] = data_pivot_all[one_column].astype('float16')
+                    data_pivot_all.loc[:, one_column] = data_pivot_all[one_column].astype('float16')
         mem_usage_per_column = data_pivot_all.memory_usage(deep=True)
         mem_usage_total = mem_usage_per_column.sum()
         logger.info(f"Total dataframe size: {mem_usage_total / (1024 ** 2):.2f} MB")
