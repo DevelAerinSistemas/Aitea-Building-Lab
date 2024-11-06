@@ -19,7 +19,7 @@ from metaclass.templates import MetaTransform
 
 
 class ConfortTemperatureTransform(MetaTransform):
-    def __init__(self, values_dictionary: dict, system_id_name: str = "system_id", datetime_name: str = "_time", set_point_name: list = ["setpoint_effective_temperature", "setpoint_temperature"], star_stop_name: str = "general_condition", downtime: int = 600):
+    def __init__(self, values_dictionary: dict, system_id_name: str = "system_id", datetime_name: str = "_time", set_point_name: list = ["setpoint_effective_temperature", "setpoint_temperature"], star_stop_name: str = "general_condition", downtime: int = 900):
         """This transformation separates the dataframe into rising, plateau, and falling room temperature.
 
         Args:
@@ -37,6 +37,7 @@ class ConfortTemperatureTransform(MetaTransform):
         self.downtime = downtime
         self.system_matrix = None
         self.global_values = None
+        self.training_range_dates = None
 
     def fit(self, X: Any | pd.DataFrame, y: Any | pd.DataFrame = None) -> None:
         """Fit, for compatibility reasons
@@ -47,15 +48,24 @@ class ConfortTemperatureTransform(MetaTransform):
         Returns:
             _type_: self
         """
+        actual_start_time = X["_time"].min()
+        actual_end_time = X["_time"].max()
+        if self.training_range_dates:
+            last_start_time = self.training_range_dates[0]
+            last_end_time = self.training_range_dates[1]
+            self.training_range_dates[0] = max(actual_start_time, last_start_time)
+            self.training_range_dates[1] = max(actual_end_time, last_end_time)
+        else:
+            self.training_range_dates = [actual_start_time, actual_end_time]
         X_transform = self._calculate_initial_transform(X)
         if X_transform is None:
             raise Exception
-        matrix_ditionary = self._calculate_speed(X_transform)
+        matrix_dictionary = self._calculate_speed(X_transform)
         if self.system_matrix is None:
-            self.system_matrix = pd.DataFrame(matrix_ditionary)
+            self.system_matrix = pd.DataFrame(matrix_dictionary)
             self.system_matrix = self.system_matrix.set_index("system_id")
         else:
-            new_matrix = pd.DataFrame(matrix_ditionary)
+            new_matrix = pd.DataFrame(matrix_dictionary)
             new_matrix = new_matrix.set_index("system_id")
             self.system_matrix = pd.concat([self.system_matrix, new_matrix])
             self.system_matrix = self.system_matrix.groupby('system_id').agg(
@@ -96,6 +106,38 @@ class ConfortTemperatureTransform(MetaTransform):
         self.fit(X)
         return self.transform(X)
 
+    def partial_fit(self, X: pd.DataFrame):
+        """Update the fit
+
+        Args:
+            X (pd.DataFrame): Data
+
+        Raises:
+            Exception: No data 
+        """
+        
+        X_transform = self._calculate_initial_transform(X)
+        if X_transform is None:
+            raise Exception
+        matrix_dictionary = self._calculate_speed(X_transform)
+        new_matrix = pd.DataFrame(matrix_dictionary)
+        df_merged = pd.merge(new_matrix, self.system_matrix, on='system_id', suffixes=('_df1', '_df2'), how='outer')
+        df_merged.loc[:,'total_changes'] = df_merged['total_changes_df1'].fillna(0) + df_merged['total_changes_df2'].fillna(0)
+        df_merged.loc[:,'total_time'] = df_merged['total_time_df1'].fillna(0) + df_merged['total_time_df2'].fillna(0)
+        df_merged.loc[:, 'total_setpoints'] = (df_merged['total_setpoints_df1'].fillna(0) + df_merged['total_setpoints_df2'].fillna(0)).astype('int')
+        df_merged.loc[:,'floor'] = df_merged['floor_df1'].fillna(df_merged['floor_df2'])
+        df_merged.loc[:,'equipment_number'] = df_merged['equipment_number_df1'].fillna(df_merged['equipment_number_df2'])
+        df_merged.loc[:,'building'] = df_merged['building_df1'].fillna(df_merged['building_df2'])
+        df_merged.loc[:, 'setpoint_last'] = np.where(df_merged['setpoint_last_df2'].notna(), df_merged['setpoint_last_df2'], df_merged['setpoint_last_df1'])
+        weighted_mean_1 = df_merged['setpoint_mean_df1'].fillna(0) * df_merged['total_setpoints_df1'].fillna(0)
+        weighted_mean_2 = df_merged['setpoint_mean_df2'].fillna(0) * df_merged['total_setpoints_df2'].fillna(0)
+        total_setpoints = df_merged['total_setpoints_df1'].fillna(0) + df_merged['total_setpoints_df2'].fillna(0)
+        df_merged.loc[:, 'setpoint_mean'] = (weighted_mean_1 + weighted_mean_2) / total_setpoints
+        df_merged = df_merged[['system_id', 'equipment_number', 'total_changes', 'total_time', 'floor', 'building', 'setpoint_mean', 'setpoint_last', 'total_setpoints']]
+        df_merged = df_merged.set_index('system_id')
+        self.system_matrix = df_merged
+        
+
     def _calculate_initial_transform(self, X: Any | pd.DataFrame) -> pd.DataFrame:
         """Create the first transformation of the data. It is left with starting moments, and with the differences in instructions.
 
@@ -123,14 +165,11 @@ class ConfortTemperatureTransform(MetaTransform):
                 if data_lenght[0] < 10:
                     logger.error(f" Not enough data to train in {id}")
                     continue
-                elif data_lenght[0] < 100:
-                    logger.warning(
-                        f" The number {data_lenght[0]} of data is small, but training will proceed.")
-                data_in_start = data[data["start"]].copy()
-                data_in_start.loc[:, "diff"] = data_in_start[set_point_name].diff(
+                #data_in_start = data[data["start"]].copy()
+                data.loc[:, "diff"] = data[set_point_name].diff(
                 )
-                data_in_start["diff"] = data_in_start["diff"].fillna(0)
-                transform_dataframe_list.append(data_in_start)
+                data.loc[:, "diff"] = data["diff"].fillna(0)
+                transform_dataframe_list.append(data)
             if len(transform_dataframe_list) > 0:
                 X_transform = pd.concat(transform_dataframe_list)
         else:
@@ -147,17 +186,18 @@ class ConfortTemperatureTransform(MetaTransform):
             pd.DataFrame: Dataframe with new attributes (total_changes, total_time)
         """
         matrix_ditionary = {"system_id": [], "equipment_number": [],
-                            "total_changes": [], "total_time": [], "floor": [], "building": [], "setpoint_mean": [], "setpoint_last": []}
+                            "total_changes": [], "total_time": [], "floor": [], "building": [], "setpoint_mean": [], "setpoint_last": [], "total_setpoints": []}
         for id in X[self.system_id_name].unique():
             data = X[X[self.system_id_name] == id].copy()
             floor = data["floor"].unique()[0]
             equipment_number = data["equipment_number"].unique()[0]
             building = data["building"].unique()[0]
             total_changes = data["diff"].abs().sum()
-            data.loc[:, "time_diff"] = data[self.datetime_name].diff()
+            data.loc[:, "time_diff"] = data[self.datetime_name].diff().shift(-1)
             dataframe_regular = data[data['time_diff'] < self.downtime]
-            total_time = dataframe_regular["time_diff"].sum(
+            total_time = dataframe_regular[dataframe_regular["start"]]["time_diff"].sum(
             )/60
+            matrix_ditionary["total_setpoints"].append(data.shape[0])
             setpoint_mean = data['setpoint_temperature'].mean()
             matrix_ditionary["setpoint_mean"].append(setpoint_mean)
             matrix_ditionary["setpoint_last"].append(
@@ -169,6 +209,7 @@ class ConfortTemperatureTransform(MetaTransform):
             matrix_ditionary["floor"].append(floor)
             matrix_ditionary["building"].append(building)
         return matrix_ditionary
+    
 
 
 if __name__ == "__main__":
@@ -205,5 +246,9 @@ if __name__ == "__main__":
     #
     data_frame_test = {"equipment_number": 10*["22"], "system_id": 10*["v101"], "floor": 10*[1], "_time": dates,
                        "general_condition": h1,  "setpoint_temperature": t1, "building": 10*["tu_casa"]}
-    print(confort.transform(pd.DataFrame(data_frame_test)))
+    print(confort.system_matrix)
+    print(confort.training_range_dates)
+    confort.partial_fit(pd.DataFrame(data_frame_test))
+    print(confort.system_matrix)
+    print(confort.training_range_dates)
     # print(confort.fit_transform(pd.DataFrame(data_frame_test)))
