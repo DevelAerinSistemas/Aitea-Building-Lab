@@ -28,13 +28,29 @@ class PipeExecutor(object):
             path (str): Pipeline picke path 
         """
         self.pipe = self.load_pipe(path)
-    
+
     def get_query(self) -> dict:
         """Get query
         Returns:
             dict: Dictionary with original search
         """
         return self.pipe.get("training_query")
+    
+
+    def run_partial_fit(self, X: pd.DataFrame, y: pd.DataFrame = None):
+        """Run a partial fit 
+        Args:
+            X (pd.DataFrame): Data to fit
+        Returns:
+            pd.DataFrame: Prediction
+        """
+        pipe_core = self.pipe.get("pipe")
+        for pipe_section in pipe_core.steps:
+            try:
+                pipe_section[1].partial_fit(X)
+            except Exception as err:
+                logging.warning(f"Possibly the pipe section does not have a partial fit {err}")
+
 
     def run_transform(self, X: pd.DataFrame):
         """Run a transform
@@ -75,9 +91,10 @@ class PipeExecutor(object):
         try:
             params = pipe_core[position].get_params()
         except KeyError:
-            logging.error(f"[Lib error], The {position} is not a position in the pipeline")
+            logging.error(
+                f"[Lib error], The {position} is not a position in the pipeline")
         return params
-    
+
     def set_params(self, params: dict, position: int = 0):
         """Sets the parameters of a pipe position
 
@@ -89,8 +106,9 @@ class PipeExecutor(object):
         try:
             pipe_core[position].set_params(params)
         except KeyError:
-            logging.error(f"[Lib error], The {position} is not a position in the pipeline")
-    
+            logging.error(
+                f"[Lib error], The {position} is not a position in the pipeline")
+
     def synchronization_and_optimization(self, X: pd.DataFrame) -> pd.DataFrame:
         """Synchronize the data obtained in influx
 
@@ -101,7 +119,7 @@ class PipeExecutor(object):
             pd.DataFrame: Pivoted and synchronized data 
         """
         return synchronization_and_optimization(X)
-    
+
     def load_pipe(self, path: str):
         """Load pickle
 
@@ -115,8 +133,7 @@ class PipeExecutor(object):
         with open(path, "rb") as f:
             pipeline = dill.load(f)
         return pipeline
-    
-    
+
     def help(self):
         """
          __init__(self, path: str):
@@ -129,7 +146,7 @@ class PipeExecutor(object):
         Get query
         Returns:
             dict: Dictionary with original search
-        
+
         run_transform(self, X: pd.DataFrame):
         Run a transform
         Args:
@@ -137,7 +154,7 @@ class PipeExecutor(object):
 
         Returns:
             pd.Dataframe: Transformed data
-        
+
         run_predict(self, X: pd.DataFrame, y: pd.DataFrame = None):
         Run a predict
 
@@ -147,7 +164,7 @@ class PipeExecutor(object):
 
         Returns:
             pd.DataFrame: Prediction
-        
+
         get_params(self, position: int = 0) -> dict:
         Get a pipe element parameters
 
@@ -156,15 +173,15 @@ class PipeExecutor(object):
 
         Returns:
             dict: Parameters
-        
+
         set_params(self, params: dict, position: int = 0):
         Sets the parameters of a pipe position
 
         Args:
             params (dict): Parameteres
             position (int, optional): Element position. Defaults to 0.
-        
-        
+
+
         synchronization_and_optimization(self, X: pd.DataFrame) -> pd.DataFrame:
         Synchronize the data obtained in influx
 
@@ -173,7 +190,7 @@ class PipeExecutor(object):
 
         Returns:
             pd.DataFrame: Pivoted and synchronized data 
-        
+
         load_pipe(self, path: str):
         Load pickle
 
@@ -183,5 +200,3 @@ class PipeExecutor(object):
         Returns:
             _type_: Pipeline
         """
-
-
