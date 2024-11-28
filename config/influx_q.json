@@ -1,7 +1,8 @@
 {   "general_query": "from(bucket: \"{bucket}\") |> range(start: {start}, stop: {stop})",
-    "pivot": "|> pivot(rowKey: [\"{row_key}\"], columnKey: [\"{column_key}\"], valueColumn: \"{value}\")",
+    "pivot": "|> pivot(rowKey: {row_key}, columnKey: {column_key}, valueColumn: \"{value}\")",
     "bucket": "from(bucket: \"{bucket}\")",
     "range": "|> range(start: {start}, stop: {stop})",
+    "filter_system_id": "|> filter(fn: (r) => r.system_id == \"{system_id}\")",
     "filter_measurement": "|> filter(fn: (r) => r._measurement == \"{measurement}\")",
     "filter_not_measurement": "|> filter(fn: (r) => r._measurement != \"{measurement}\")",
     "filter_field": "|> filter(fn: (r) => r._field == \"{field}\")",
@@ -9,7 +10,13 @@
     "tag_is": "|> filter(fn: (r) => r[\"{tag_name}\"] == \"{tag_value}\")",
     "tag_is_not": "|> filter(fn: (r) => r.{tag_name} != \"{tag_value}\")",
     "keep_columns": "|> keep(columns: {columns})",
-    "schema": "import \"influxdata/influxdb/schema\" \nschema.fieldKeys(bucket: \"{schema_bucket}\", start: -100d)"
-    
+    "schema": "import \"influxdata/influxdb/schema\" \nschema.fieldKeys(bucket: \"{schema_bucket}\", start: -100d)",
+    "last_hours": "|> range(start: {start})",
+    "bewteen_values_included_filter": "|> filter(fn: (r) => r._value >= {min_value} and r._value <= {max_value})",
+    "bewteen_values_not_included_filter": "|> filter(fn: (r) => r._value > {min_value} and r._value < {max_value})",
+    "window_aggregation": "|> aggregateWindow(every: {every}, fn: {function}, createEmpty: {create_empty})",
+    "fill": "|> fill({filltype}: {true_false})",
+    "group": "|> group(columns: {columns})"
 }
+
 

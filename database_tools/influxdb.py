@@ -34,10 +34,12 @@ class InfluxDBConnector(object):
         self.am_bucket_api = None
         self.existence = True
         self.config_error = False
-        connection_config = get_configuration(global_configuration="config/global_config.json", section="connections")
+        connection_config = get_configuration(
+            global_configuration="config/global_config.json", section="connections")
         self.data_base_config = connection_config.get("influxdb")
         self.load_configuration()
-        self.queries = get_configuration(global_configuration="config/influx_q.json")
+        self.queries = get_configuration(
+            global_configuration="config/influx_q.json")
 
     @logger.catch()
     def load_configuration(self,):
@@ -183,7 +185,8 @@ class InfluxDBConnector(object):
                     logger.error(
                         f"[AM][InfluxDB][Insertion] - There is an ApiException from InfluxDB trying to create a bucket. ApiException: {err}")
             else:
-                logger.warning(f"[AM][InfluxDB][Insertion] - The bucket exists and will not be created.")
+                logger.warning(
+                    f"[AM][InfluxDB][Insertion] - The bucket exists and will not be created.")
 
     @logger.catch()
     def bucket_reviewer(self, bucket_candidate: str):
@@ -198,7 +201,7 @@ class InfluxDBConnector(object):
             if bucket_candidate in bucket_list:
                 existence = True
         return existence
-    
+
     @logger.catch()
     def exception_handler(self, err: Exception):
         """Method to manage InfluxDB Exceptions 
@@ -225,8 +228,7 @@ class InfluxDBConnector(object):
         else:
             logger.error(
                 f"[AM][InfluxDB][Connector] - There is a InfluxDB Exception. Please Review in detail. {err_content}")
-    
-    
+
     @logger.catch()
     def query(self, query: str, schema: bool = False, pandas: bool = False, stream: bool = False) -> Union[list, pd.DataFrame]:
         """Make a influx simple query
@@ -243,18 +245,20 @@ class InfluxDBConnector(object):
         query_api = self.influx_client.query_api()
         if pandas:
             results = self._query_pandas(query_api, query, stream)
-            logger.info(f"Finishing search and finishing the transformation to pandas in {time.time() - time_i}")
+            logger.info(
+                f"Finishing search and finishing the transformation to pandas in {time.time() - time_i}")
         else:
             results = self._query_list(query_api, query, schema)
-            logger.info(f"Finishing search and finishing the transformation to list in {time.time() - time_i}")
+            logger.info(
+                f"Finishing search and finishing the transformation to list in {time.time() - time_i}")
         return results
-    
+
     @logger.catch()
     def _query_pandas(self, query_api, query: str, stream: bool) -> pd.DataFrame:
         results = None
         try:
             if stream:
-                result = query_api.query_data_frame_stream(query=query) 
+                result = query_api.query_data_frame_stream(query=query)
             else:
                 result = query_api.query_data_frame(query=query)
         except Exception as err:
@@ -284,12 +288,14 @@ class InfluxDBConnector(object):
                         (record.get_field(), record.get_value(), record.get_time()))
         return results
 
-    
     @logger.catch()
-    def request_query(self, query_dict: dict, pandas: bool = True, stream = False):
-        influx_query = self.compose_influx_query_from_dict(arguments_dict=query_dict)
-        logger.info(f"Requesting a query with the following influx query language {influx_query}")
-        data_answer = self.query(query=influx_query, pandas=pandas, stream=stream)
+    def request_query(self, query_dict: dict, pandas: bool = True, stream=False):
+        influx_query = self.compose_influx_query_from_dict(
+            arguments_dict=query_dict)
+        logger.info(
+            f"Requesting a query with the following influx query language {influx_query}")
+        data_answer = self.query(
+            query=influx_query, pandas=pandas, stream=stream)
         return data_answer
 
     @logger.catch()
@@ -321,11 +327,11 @@ class InfluxDBConnector(object):
                 one_template = self.queries[key].format(**value)
                 query += "\n" + one_template
         return query
-    
+
     @logger.catch()
     def to_unix_time(self, range: dict):
         start_unix = '0'
-        stop_unix = '0' 
+        stop_unix = '0'
         start = range.get("start")
         stop = range.get("stop")
         try:
@@ -338,9 +344,12 @@ class InfluxDBConnector(object):
             stop_unix = int(stop_dt.timestamp())
         return {"start": start_unix, "stop": stop_unix}
 
+
 if __name__ == "__main__":
-    query  = {"bucket": {"bucket": "alfonso_xii_62"}, "range": {"start": "2024-09-5T00:00:00.000Z", "stop": "2024-09-5T05:30:00.000Z"}, "tag_is": [{"tag_name": "equipment_number", "tag_value": "unity_104"}]}
+    query = {"bucket": {"bucket": "alfonso_xii_62"}, "range": {"start": "2024-09-1T00:00:00.000Z", "stop": "2024-09-15T05:30:00.000Z"},
+             "filter_measurement": {"measurement": "climatization"}, "filter_field": [{"field": "room_temperature"}, {"field": "setpoint_temperature"}, {"field": "general_condition"}, {"field": "setpoint_temperature"}], "tag_is": {"tag_name": "type", "tag_value": "air_conditioning"}, "window_aggregation": {"every": "5m", "function": "mean", "create_empty": "false"}, "fill": {"filltype": "usePrevious", "true_false": "true"}}
     influx = InfluxDBConnector()
     _, _ = influx.connect(True)
-    data = influx.request_query(query_dict=query, pandas=True) 
-    influx.close()
+    data = influx.request_query(query_dict=query, pandas=True)
+    print(data)
+    # influx.close()

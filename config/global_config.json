@@ -1,0 +1,11 @@
+{
+    "connections": {
+        "influxdb": {
+            "token": "p_ESDe9zzplopKEaFqxKmHGCZSNDoAHCEvRp7pMLWAG2wOkb_Yk4AxYN1wVO9umdGz5a-qFxoPjRM_NIwPFbFw==",
+            "arturo": "5jcgF_1iumuh8BIYliCJh7sK3SF8wpY8226bks3NryJpPj55XrIpwqmquOF0Uzamd9t9GWBCJCZT5xLBlmv8_w==",
+            "org": "Aitea",
+            "host": "10.215.113.109",
+            "port": "8086"
+        }
+    }
+}
