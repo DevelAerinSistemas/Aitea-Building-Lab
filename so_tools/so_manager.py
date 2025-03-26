@@ -62,6 +62,25 @@ class SOManager(object):
 
     def exec_get_params(self, position: int = 0) -> dict:
         return self.exec.get_params(position)
+    
+    def exec_predict(self, X: pd.DataFrame) -> pd.DataFrame:
+        return self.exec.run_predict(X)
+    
+    def exec_get_results(self, Prediction: pd.DataFrame) -> pd.DataFrame:
+        return self.exec.get_results(Prediction)
+    
+    def exec_fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> pd.DataFrame:
+        self.exec.run_fit(X, y)
+        
+    def exec_fit_predict(self, X: pd.DataFrame, y: pd.DataFrame = None) -> pd.DataFrame:
+        return self.exec.run_fit_predict(X, y)
+    
+    def exec_update_default_values(self, **args):
+        self.exec.run_update_default_values(**args)
+        
+    def exce_get_matrix(self):
+        return self.exec.get_matrix()
+
 
 
     
