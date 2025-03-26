@@ -17,11 +17,13 @@ import importlib
 from loguru import logger
 import pandas as pd
 import subprocess
+from dotenv import load_dotenv
+import os
 
 
-from database_tools.influxdb import InfluxDBConnector
+from database_tools.influxdb_connector import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
-from utils.data_utils import synchronization_and_optimization
+from utils.file_utils import load_json_file
 from exceptions.fit_exception import InsufficientDataError
 
 
@@ -92,13 +94,16 @@ class PipelineManager(object):
         return instance
 
 
-class PipelineExecutor(PipelineManager):
-    def __init__(self, configuration_definition_file: str, total_processing: int = 4):
+class PipelineExecutor(PipelineManager, ):
+    def __init__(self, configuration_definition_file: str, total_processing: int = 4, create_so: bool = True):
         super().__init__(configuration_definition_file)
         self.total_processing = total_processing
         self.create_pipelines()
+        data_conection = load_json_file(os.getenv("INFLUX_CONNECTION"))
+        self.create_so = create_so
         for name, pipes_data in self.pipes.items():
-            influx = InfluxDBConnector()
+            influx = InfluxDBConnector(data_conection)
+            influx.load_configuration()
             _, _ = influx.connect(True)
             pipes_data["connection"] = influx
 
@@ -112,15 +117,15 @@ class PipelineExecutor(PipelineManager):
             for bucket in buckets:
                 query_buckets["bucket"]["bucket"] = bucket
                 logger.info(f" Start query in  {bucket}")
-                stream_data = influx_connection.request_query(
-                    query_dict=query_buckets, pandas=True, stream=True)
-                dataframe = synchronization_and_optimization(
-                    stream_data=stream_data)
-                if dataframe is None:
+                query = influx_connection.compose_influx_query_from_dict(query_buckets)
+                stream_data = influx_connection.query(
+                    query=query, pandas=True, stream=False)
+
+                if stream_data is None:
                     continue
                 logger.info(f" End query in {bucket}")
-                dataframe["building"] = bucket
-                dataframe_list.append(dataframe)
+                stream_data["bucket"] = bucket
+                dataframe_list.append(stream_data)
             if len(dataframe_list) > 0:
                 total_dataframe = pd.concat(dataframe_list)
         return total_dataframe
@@ -138,7 +143,8 @@ class PipelineExecutor(PipelineManager):
                     pipe_core = {"name": pipe_name, "pipe": pipe_info.get(
                         "pipe"), "training_query":  pipe_info.get("training_query")}
                     pool.apply_async(lab_fit, args=(data, pipe_core,),
-                                     callback=self.task_handler)
+                                     callback=self.task_handler,
+                                     error_callback=self.error_handler)
                     logger.info(f"Geting fit to {pipe_name}")
             pool.close()
             pool.join()
@@ -151,7 +157,9 @@ class PipelineExecutor(PipelineManager):
         else:
             pipe_save(result)
             logger.info(f" End pipe fit. It is saved {result}")
-            self.create_so()
+            if self.create_so:
+                logger.info("Creating shared object")
+                self.create_so()
 
     def error_handler(self, result):
         logger.error(f"Error in fit {result}")
@@ -180,5 +188,5 @@ class PipelineExecutor(PipelineManager):
 
 
 if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json")
+    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", create_so=False)
     pipe.pipes_executor()
