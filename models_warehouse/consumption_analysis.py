@@ -53,7 +53,7 @@ class ConsumptionAnalysis(MetaModel):
             y (pd.Series, optional): Target. Defaults to None.
         """
         timi_i = time.time()
-        fitected_bucket =list()
+        fitected_bucket = list()
         logger.info(f"[{self.__class__.__name__}] Fitting the model")
         try:
             X_copy = X[self.columns].copy()
@@ -113,30 +113,29 @@ class ConsumptionAnalysis(MetaModel):
             dict: Results
         """
         return self._analyzer(prediction)
-    
+
     def upadate_default_values(self, **args) -> None:
         """Update default values
         """
-        logger.info(f"[{self.__class__.__name__}] Updating default values {args}")
+        logger.info(
+            f"[{self.__class__.__name__}] Updating default values {args}")
         for key, value in args.items():
             if key == "fit_attributes":
                 self.fit_attributes = value
-            elif key == "freq": 
+            elif key == "freq":
                 self.freq = value
             elif key == "z_score_threshold":
                 self.z_score_threshold = value
             elif key == "model_type":
                 self.model_type = value
-    
-    
+
     def get_matrix(self) -> dict:
         """Get trained matrix in a bucket dictionary
 
         Returns:
             dict: Matrix bucket dictionary
         """
-        return  self.models_matrix
-
+        return self.models_matrix
 
     def _analyzer(self, prediction_data: pd.DataFrame) -> tuple:
         """Analyzer the prediction data
@@ -179,7 +178,7 @@ class ConsumptionAnalysis(MetaModel):
             summary_building_dataframe = pd.DataFrame(
                 summary_building, index=[0])
 
-        return {"total_consumption_summary" :total_summary_dataframe, "building_consumption_summary": summary_building_dataframe}
+        return {"total_consumption_summary": total_summary_dataframe, "building_consumption_summary": summary_building_dataframe}
 
     def _fit_for_building(self, building_X: pd.DataFrame) -> dict:
         """Transform the data for a bucket
@@ -220,7 +219,7 @@ class ConsumptionAnalysis(MetaModel):
                     "_value"].std()
                 std_values_week = data_floor_module_grouped_week.groupby("activity_period")[
                     "_value"].std()
-                
+
                 fit_model = self._model(data_floor_module_grouped)
                 result_by_modules[m] = {"fit_model": fit_model, "mean_values_weekend": mean_values_weekend,
                                         "mean_values_week": mean_values_week, "std_values_weekend": std_values_weekend, "std_values_week": std_values_week}
@@ -259,7 +258,7 @@ class ConsumptionAnalysis(MetaModel):
                         model = matrix_fit_data["fit_model"]
                         data_floor_module = data_floor[data_floor["module"] == m]
                         if data_floor_module.empty:
-                            continue 
+                            continue
                         data_floor_module_grouped = data_floor_module.groupby(
                             ["_time", "module"])["_value"].sum().reset_index()
                         data_floor_module_grouped.loc[:, 'is_weekend'] = data_floor_module_grouped['_time'].dt.dayofweek.apply(
@@ -272,12 +271,14 @@ class ConsumptionAnalysis(MetaModel):
                             lambda x: "activity" if 6 <= x < 21 else "no_activity")
                         prediction = model.predict(
                             data_floor_module_grouped[self.fit_attributes])
-                        data_floor_module_grouped.loc[:, "prediction"] = prediction
+                        data_floor_module_grouped.loc[:,
+                                                      "prediction"] = prediction
                         data_floor_module_grouped.loc[:, "floor"] = f
                         data_floor_module_grouped.loc[:, "bucket"] = b
                         data_floor_module_grouped.loc[:, "z-score"] = data_floor_module_grouped.apply(
                             lambda row: self._z_score(row, matrix_fit_data), axis=1)
-                        prediction_result_append.append(data_floor_module_grouped)
+                        prediction_result_append.append(
+                            data_floor_module_grouped)
         else:
             logger.error(
                 f"[{self.__class__.__name__}] - Model not fitted, the prediction is not possible")
@@ -285,7 +286,7 @@ class ConsumptionAnalysis(MetaModel):
             return_value = pd.concat(prediction_result_append)
         else:
             logger.error(
-                f"[{self.__class__.__name__}] - Prediction not possible. The fit data for {building_to_predict} is empty")    
+                f"[{self.__class__.__name__}] - Prediction not possible. The fit data for {building_to_predict} is empty")
         return return_value
 
     def _model(self, data_models: pd.DataFrame) -> Any:
@@ -344,30 +345,30 @@ if __name__ == "__main__":
 
     data_conection = load_json_file(os.getenv("INFLUX_CONNECTION"))
 #
-    #query_dict = dict()
-    #query_dict["bucket"] = {"bucket": "recoletos_37"}
-    #query_dict["range"] = {
+    # query_dict = dict()
+    # query_dict["bucket"] = {"bucket": "recoletos_37"}
+    # query_dict["range"] = {
     #    "start": "2024-10-01T00:11:52.211Z", "stop": "2024-12-10T00:11:52.211Z"}
-    #query_dict["tag_is"] = [{"tag_name": "element",
+    # query_dict["tag_is"] = [{"tag_name": "element",
     #                         "tag_value": "electrical_network_analyzer"}]
-    #query_dict["filter_field"] = [{"field": "active_energy"}]
-    #query_dict["window_aggregation"] = {
+    # query_dict["filter_field"] = [{"field": "active_energy"}]
+    # query_dict["window_aggregation"] = {
     #    "every": "30m", "function": "max", "create_empty": "true"}
-    #query_dict["fill"] = {"columns": "_value", "previous": "true"}
-    #query_dict["difference"] = {"non_negative": "true"}
+    # query_dict["fill"] = {"columns": "_value", "previous": "true"}
+    # query_dict["difference"] = {"non_negative": "true"}
 #
-    #influx = InfluxDBConnector(data_conection)
-    #influx.load_configuration()
-    #influx.connect(True)
-    #query_flux = influx.compose_influx_query_from_dict(query_dict)
-    #data = influx.query(query=query_flux, pandas=True)
+    # influx = InfluxDBConnector(data_conection)
+    # influx.load_configuration()
+    # influx.connect(True)
+    # query_flux = influx.compose_influx_query_from_dict(query_dict)
+    # data = influx.query(query=query_flux, pandas=True)
     columns = ["_time", "bucket", "floor", "module", "_value"]
-    #data.loc[:, "bucket"] = "recoletos_37"
+    # data.loc[:, "bucket"] = "recoletos_37"
     c_anal = ConsumptionAnalysis(columns)
-    #c_anal.fit(data)
+    # c_anal.fit(data)
 
-    #c_anal.upadate_default_values(z_score_threshold=17)
-    
+    # c_anal.upadate_default_values(z_score_threshold=17)
+
     influx = InfluxDBConnector(data_conection)
     influx.load_configuration()
     influx.connect(True)
