@@ -14,7 +14,27 @@ import json
 from json.decoder import JSONDecodeError
 from  loguru import logger
 
+@logger.catch
+def load_json_file(path: str) -> dict:
+    """Load json file
 
+    Args:
+        path (str): File path
+
+    Returns:
+        dict: Json as a dictionary 
+    """
+    json_file = None
+    try:
+        f = open(path, mode="r", encoding="utf-8")
+        json_file = json.loads(f.read())
+        f.close()
+        logger.debug(f"Read file: {path}")
+    except Exception as e:
+        logger.error(
+            f"Error reading file {path}: {e}"
+        )
+    return json_file
 
 def get_configuration(global_configuration: str = 'config/global_config.json', section: str = None) -> dict:
     """Get configuration from file
@@ -36,3 +56,23 @@ def get_configuration(global_configuration: str = 'config/global_config.json', s
     except JSONDecodeError:
         logger.error(f" Wrong or poorly formatted json : {global_configuration}")
     return config_dictionary
+
+
+def get_influx_queries(influx_q_path: str = './config/influx_q.json') -> dict:
+    """Get influx queries dictionary
+
+    Args:
+        influx_q_path (str, optional): json influx queries file path. Defaults to 'config/connections/influx_q.json'.
+
+    Returns:
+        dict: Dict with influx queries
+    """
+    influx_q_dictionary = None
+    try:
+        with open(influx_q_path) as config_file:
+            influx_q_dictionary = json.load(config_file)
+    except FileNotFoundError:
+        logger.error(f"Influx queries file not found : {influx_q_path}") 
+    except json.decoder.JSONDecodeError:
+        logger.error(f" Wrong or poorly formatted json : {influx_q_path}")
+    return influx_q_dictionary

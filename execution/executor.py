@@ -63,8 +63,33 @@ class PipeExecutor(object):
         """
         pipe_core = self.pipe.get("pipe")
         return pipe_core.transform(X)
+    
+    def run_fit(self, X: pd.DataFrame, y: pd.DataFrame = None):
+        """Run a fit
 
-    def run_predict(self, X: pd.DataFrame, y: pd.DataFrame = None):
+        Args:
+            X (pd.DataFrame): Data to fit
+            y (pd.DataFrame, optional): Target data. Defaults to None.
+        """
+        pipe_core = self.pipe.get("pipe")
+        pipe_core.fit(X, y)
+    
+    
+    def run_fit_predict(self, X: pd.DataFrame, y: pd.DataFrame = None):
+        """Runa a fit predict
+
+        Args:
+            X (pd.DataFrame): Data to fit
+            y (pd.DataFrame, optional): Target data. Defaults to None.
+
+        Returns:
+            pd.DataFrame: Predict data
+        """
+        pipe_core = self.pipe.get("pipe")
+        return pipe_core.fit_predict(X, y)
+        
+
+    def run_predict(self, X: pd.DataFrame):
         """Run a predict
 
         Args:
@@ -75,7 +100,59 @@ class PipeExecutor(object):
             pd.DataFrame: Prediction
         """
         pipe_core = self.pipe.get("pipe")
-        return pipe_core.predict(X, y)
+        return pipe_core.predict(X)
+    
+    def run_get_results(self, Prediction: pd.DataFrame) -> pd.DataFrame:
+        """Run a get results
+
+        Args:
+            Prediction (pd.DataFrame): Prediction data
+
+        Returns:
+            pd.DataFrame: Results
+        """
+        result = None
+        pipe_core = self.pipe.get("pipe")
+        try:
+            for pipe_section in pipe_core.steps:
+                try:
+                    result = pipe_section[1].get_results(Prediction)
+                except Exception as err:
+                    logging.warning(f"Possibly the pipe section does not have a get results {err}")
+                else:
+                    break
+        except Exception as err:
+            logging.error(f"Error in get_results {err}")
+        return result
+    
+    def run_get_matrix(self) -> dict:
+        """Get matrix results
+
+        Returns:
+            dict: Matrix results
+        """
+        matrix = None
+        pipe_core = self.pipe.get("pipe")
+        try:
+            for pipe_section in pipe_core.steps:
+                try:
+                    matrix = pipe_section[1].get_matrix()
+                except Exception as err:
+                    logging.warning(f"Possibly the pipe section does not have a get results {err}")
+                else:
+                    break
+        except Exception as err:
+            logging.error(f"Error in get_results {err}")
+        return matrix
+    
+    def run_update_default_values(self, **args):
+        """Update default values 
+        """
+        pipe_core = self.pipe.get("pipe")
+        try:
+            pipe_core.update_default_values(**args)
+        except Exception as err:
+            logging.error(f"Error in update_default_values {err}")
 
     def get_params(self, position: int = 0) -> dict:
         """Get a pipe element parameters

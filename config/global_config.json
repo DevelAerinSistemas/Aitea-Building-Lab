@@ -1,0 +1,15 @@
+{
+    "influxdb": {
+        "token": "bLWBfiJd1-YTRqOnN0B5ATX_nAjX5uwiEBt7qNw1-oOb9lQ4utcuCIIGwZK1eGZ71BtoeN2O_ybPYy_gxqgQnA==",
+        "arturo": "5jcgF_1iumuh8BIYliCJh7sK3SF8wpY8226bks3NryJpPj55XrIpwqmquOF0Uzamd9t9GWBCJCZT5xLBlmv8_w==",
+        "org": "Aitea_2",
+        "host": "10.215.113.109",
+        "port": "8086"
+    },
+    "influxdb_pre": {
+        "token": "5jcgF_1iumuh8BIYliCJh7sK3SF8wpY8226bks3NryJpPj55XrIpwqmquOF0Uzamd9t9GWBCJCZT5xLBlmv8_w==",
+        "org": "Aerin",
+        "host": "192.168.53.101",
+        "port": "8086"
+    }
+}

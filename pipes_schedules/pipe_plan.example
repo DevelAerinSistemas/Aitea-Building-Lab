@@ -1,0 +1,111 @@
+{
+    "temperature_confort": {
+        "steeps": {
+            "confort_temperature_analysis.ConfortTemperatureTransform": {
+                "values_dictionary": {
+                    "start_values": [
+                        1
+                    ]
+                }
+            }
+        },
+        "freq_info": {
+            "start": "",
+            "freq": ""
+        },
+        "training_query": {
+            "bucket": {
+                "bucket": [
+                    "castellana_163",
+                    "alfonso_xii_62", 
+                    "castellana_52",
+                    "diagonal_525",
+                    "diagonal_530",
+                    "don_ramon_de_la_cruz_82",
+                    "francisco_silvela",
+                    "ortega_y_gasset", 
+                    "recoletos_37",
+                    "tucuman",
+                    "principe_de_vergara",
+                    "torre_marenostrum"
+                ]
+            },
+            "range": {
+                "start": "2024-09-09T00:00:00.343Z",
+                "stop": "2024-09-24T23:48:32.343Z"
+            },
+            "filter_measurement": {
+                "measurement": "climatization"
+            },
+            "filter_field": [
+                {
+                    "field": "general_condition"
+                },
+                {
+                    "field": "room_temperature"
+                },
+                {
+                    
+                    "field": "setpoint_temperature"
+                },
+                {
+                    "field": "setpoint_effective_temperature"
+                },
+                {
+                    "field": "equipment_number"
+                }
+            ],
+            "tag_is": [
+                {
+                    "tag_name": "type",
+                    "tag_value": "air_conditioning"
+                }
+            ]
+        }
+    }, 
+       "consumption_analysis": {
+        "steeps": {
+            "consumption_analysis.ConsumptionAnalysis": {
+                    "columns": [ "_time", "bucket", "floor", "module", "_value"]
+            }
+        },
+        "freq_info": {
+            "start": "",
+            "freq": ""
+        },
+        "training_query": {
+            "bucket": {
+                "bucket": [
+                    "recoletos_37", "alfonso_xii_62", "estebanez_calderon", "tucuman", "velazquez_88", "ciudad_de_granada", "ribera_del_loira"]
+            },
+            "range": {
+                "start": "2025-01-7T00:00:00.211Z",
+                "stop": "2025-03-25T00:11:52.211Z"
+            },
+            "filter_field": [
+                {
+                    "field": "active_energy"
+                }
+            ],
+            "tag_is": [
+                {
+                    "tag_name": "element",
+                    "tag_value": "electrical_network_analyzer"
+                }
+            ],
+            "window_aggregation": {
+                "every": "30m",
+                "function": "max",
+                "create_empty": "true"
+            },
+            "fill": {
+                "columns": "_value",
+                "previous": "true"
+            },
+            "difference": {
+                "non_negative": "true"
+            }
+
+        }
+    }
+}

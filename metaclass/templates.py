@@ -85,4 +85,13 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
             np.ndarray: Probability Vector
         """
         pass
+    
+    @abstractmethod
+    def get_results(self) -> Any:
+        """Get the results of the model
+
+        Returns:
+            Any: Results
+        """
+        pass
 

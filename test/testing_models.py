@@ -16,8 +16,11 @@ from database_tools.influxdb import InfluxDBConnector
 
 from loguru import logger 
 from execution import executor
+
+
 import pandas as pd
 import pickle
+import time
 
 
 
@@ -59,10 +62,13 @@ def confort_testing():
     query_buckets = model.get_query()
     pipe = model.pipe.get("pipe")
     system_matrix = pipe[0].system_matrix
-    dataframe = queries(query_buckets, ["2024-09-15T12:00:00.000Z", "2024-09-15T16:00:00.000Z"])  
-    trans = model.run_transform(dataframe)
-    trans.to_pickle("test/testing.pkl")
-    system_matrix.to_pickle("test/system.pkl")
+    dataframe = queries(query_buckets, ["2024-09-17T07:00:00.000Z", "2024-09-17T23:00:00.000Z"])  
+    print(dataframe)
+    #trans = model.run_partial_fit(dataframe)
+    #trans = model.run_transform(dataframe)
+    #trans.to_pickle("test/testing.pkl")
+    #system_matrix.to_pickle("test/system.pkl")
+    
 
 
     
