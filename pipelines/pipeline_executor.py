@@ -24,6 +24,7 @@ import os
 from database_tools.influxdb_connector import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
 from utils.file_utils import load_json_file
+from utils.so_utils import create_so
 from exceptions.fit_exception import InsufficientDataError
 
 
@@ -95,12 +96,21 @@ class PipelineManager(object):
 
 
 class PipelineExecutor(PipelineManager, ):
-    def __init__(self, configuration_definition_file: str, total_processing: int = 4, create_so: bool = True):
+    def __init__(self, configuration_definition_file: str, total_processing: int = 4, generate_so: bool = True, save_in_joblib: bool = False):
+        """Initializes the PipelineExecutor with configuration and processing options.
+
+        Args:
+            configuration_definition_file (str): Configuration file path.
+            total_processing (int, optional): Number of processes to use. Defaults to 4.
+            generate_so (bool, optional): Flag to generate shared object. Defaults to True.
+            save_in_joblib (bool, optional): Flag to save in joblib format. Defaults to False.
+        """
         super().__init__(configuration_definition_file)
         self.total_processing = total_processing
         self.create_pipelines()
         data_conection = load_json_file(os.getenv("INFLUX_CONNECTION"))
-        self.create_so = create_so
+        self.generate_so = generate_so
+        self.save_in_joblib = save_in_joblib
         for name, pipes_data in self.pipes.items():
             influx = InfluxDBConnector(data_conection)
             influx.load_configuration()
@@ -108,6 +118,14 @@ class PipelineExecutor(PipelineManager, ):
             pipes_data["connection"] = influx
 
     def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
+        """Prepare data for the pipeline execution.
+
+        Args:
+            pipe_data (dict): Pipeline data containing the query
+
+        Returns:
+            pd.DataFrame: Data to fit the pipe
+        """
         query_buckets = copy.deepcopy(pipe_data.get("training_query"))
         buckets = query_buckets.get("bucket", {}).get("bucket")
         influx_connection = pipe_data.get("connection")
@@ -120,17 +138,21 @@ class PipelineExecutor(PipelineManager, ):
                 query = influx_connection.compose_influx_query_from_dict(query_buckets)
                 stream_data = influx_connection.query(
                     query=query, pandas=True, stream=False)
-
                 if stream_data is None:
                     continue
                 logger.info(f" End query in {bucket}")
                 stream_data["bucket"] = bucket
                 dataframe_list.append(stream_data)
             if len(dataframe_list) > 0:
-                total_dataframe = pd.concat(dataframe_list)
+                total_dataframe = pd.concat(dataframe_list, ignore_index=True)  # Added ignore_index=True for better concatenation
         return total_dataframe
 
-    def pipes_executor(self):
+    def pipes_executor(self, testing: bool = False):
+        """Executes the pipeline tasks using multiprocessing.
+
+        Args:
+            testing (bool, optional): Flag to indicate if the execution is for testing purposes (fit and predict). Defaults to False.
+        """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipes.items():
                 logger.info(
@@ -142,7 +164,7 @@ class PipelineExecutor(PipelineManager, ):
                 else:
                     pipe_core = {"name": pipe_name, "pipe": pipe_info.get(
                         "pipe"), "training_query":  pipe_info.get("training_query")}
-                    pool.apply_async(lab_fit, args=(data, pipe_core,),
+                    pool.apply_async(lab_fit, args=(data, pipe_core, testing),
                                      callback=self.task_handler,
                                      error_callback=self.error_handler)
                     logger.info(f"Geting fit to {pipe_name}")
@@ -150,43 +172,37 @@ class PipelineExecutor(PipelineManager, ):
             pool.join()
 
     def task_handler(self, result):
+        """Handles the result of the pipeline fitting process.
+
+        Args:
+            result: The result of the fitting process.
+        """
         if result == "InsufficientDataError":
             logger.critical(f" Not enough data to train")
         elif result == "KeyError":
             logger.critical(f" The pipe is malformed, keys are missing")
         else:
-            pipe_save(result)
-            logger.info(f" End pipe fit. It is saved {result}")
-            if self.create_so:
+            training_file = pipe_save(result, self.save_in_joblib)
+            logger.info(f" End pipe fit. It is saved {training_file}")
+            if self.generate_so:
                 logger.info("Creating shared object")
-                self.create_so()
+                self.create_so(training_file)
 
     def error_handler(self, result):
+        """Handles errors that occur during the fitting process.
+
+        Args:
+            result: The error result from the fitting process.
+        """
         logger.error(f"Error in fit {result}")
 
-    def create_so(self):
-        command = [
-            "/opt/VirtualEnv/virtualAiteaBuildingLab/bin/nuitka",
-            "--module", "execution/executor.py",
-            "--include-package=models_warehouse",
-            "--include-package=metaclass",
-            "--include-package=utils",
-            "--show-modules",
-            "--output-dir=lib",
-            "--remove-output"
-        ]
-        try:
-            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            logger.info(f" Output: {result.stdout}")
-            if result.stderr:
-                logger.error(f"Error Output: {result.stderr}")
-        except  subprocess.CalledProcessError as err:
-            logger.error(f"Error Output: {err}")
-
+    def create_so(self, model_path):
+        create_so(model_path=model_path)
+        logger.info(f"Shared object created at {model_path}")
+        
         
 
-
-
 if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", create_so=False)
-    pipe.pipes_executor()
+    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=True, save_in_joblib=False)
+    pipe.pipes_executor(testing=False)
+    logger.info("Pipeline execution completed.")
