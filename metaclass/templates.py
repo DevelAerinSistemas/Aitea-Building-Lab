@@ -11,6 +11,7 @@
 from typing import Any
 import numpy as np
 from abc import ABC, abstractmethod
+from loguru import logger
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -31,6 +32,15 @@ class MetaTransform(ABC, BaseEstimator, TransformerMixin):
 
     @abstractmethod
     def transform(self, X: Any) -> Any:
+        pass
+    
+    @abstractmethod
+    def get_info(self) -> str:
+        """Get the information of the transformation and version
+
+        Returns:
+            str: Information about the transformation and version
+        """
         pass
 
 
@@ -94,4 +104,28 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
             Any: Results
         """
         pass
+    
+    def clean_model(self, model: Any):
+        """Get the results of the model
+
+        Returns:
+            Any: Results
+        """
+        try:
+            model._fit_X = None
+        except Exception as err:
+            logger.error(f"Error cleaning model {err}. The model most likely cannot be cleaned.")
+        else:
+            logger.info("Model cleaned")
+    
+    
+    @abstractmethod
+    def get_info(self) -> str:
+        """Get the information of the transformation and version
+
+        Returns:
+            str: Information about the transformation and version
+        """
+        pass
+    
 
