@@ -71,7 +71,11 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
         fit_and_predict (bool): Flag to indicate if fit and predict should be performed
 
     Returns:
-        _type_: A fit pipe
+        dictionary: A fit pipe in a dictionary with the following keys 
+        - pipe_name: Name of the pipe
+        - pipe: The fitted pipe object
+        - training_query: The query used for training
+        - date: The date and time of fitting
     """
     timi_i = time.time()
     logger.info(f"Starting pipe fitting for {pipe_core}")
