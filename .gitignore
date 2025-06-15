@@ -20,6 +20,7 @@ venv/
 
 # Archivos de Jupyter Notebook
 .ipynb_checkpoints/
+*.ipynb
 
 # Archivos de caché de herramientas
 .cache/
@@ -30,3 +31,10 @@ venv/
 
 # Cosas de los binarios
 *.pyi
+
+
+# Archivos binarios     
+*.so
+
+# Configuraciones locales (contienen _local en el nombre)
+*local*
