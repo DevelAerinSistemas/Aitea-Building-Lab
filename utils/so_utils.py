@@ -70,9 +70,11 @@ class PipeExecutor:
     def __init__(self):
         self.pipe = pipeline
     
-    
     def get_query(self):
-        return self.pipe.get("training_query")
+        query = self.pipe.get("training_query")
+        if query:
+            return query.copy()  # Returns a copy to avoid modifying the original
+        return None
 
     def fit_predict(self, X: pd.DataFrame, y: pd.DataFrame = None):
         pipe_core = self.pipe.get("pipe")
@@ -82,6 +84,10 @@ class PipeExecutor:
         pipe_core = self.pipe.get("pipe")
         return pipe_core.predict(X)
     
+    def predict_and_refit(self, X: pd.DataFrame):
+        pipe_core = self.pipe.get("pipe")
+        return pipe_core.predict_and_refit(X)
+        
     def get_results(self) -> pd.DataFrame:
         result = list()
         pipe_core = self.pipe.get("pipe")
@@ -97,6 +103,14 @@ class PipeExecutor:
             logging.error('Error in get_results')
         return result
     
+    def update_parameters(self, **attributes):
+        pipe_core = self.pipe.get("pipe")
+        for pipe_section in pipe_core.steps:
+            try:
+                pipe_section[1].update_parameters(attributes)
+            except Exception as err:
+                logging.warning(f'Error updating parameters')
+        
     def get_matrix(self) -> list:
         matrix = list()
         pipe_core = self.pipe.get("pipe")
@@ -124,9 +138,19 @@ class PipeExecutor:
                 info[pipe_section[0]] = one_info
         return info
     
-
-
+    def get_all_attributes(self) -> dict:
+        info = dict()
+        pipe_core = self.pipe.get("pipe")
+        for pipe_section in pipe_core.steps:
+            try:
+                one_info = pipe_section[1].get_all_attributes()
+            except Exception as err:
+                logging.warning("Possibly the pipe section does not have a get info")
+            else:
+                info[pipe_section[0]] = one_info
+        return info
     """
+    
     name_so = model_path.split("/")[1].split(".")[0]
     name_py = name_so + ".py"
     
@@ -153,9 +177,13 @@ class PipeExecutor:
     finally:
         # Clean up the temporary file
         import os
-        #if os.path.exists(name_py):
-        #    os.remove(name_py)
-        logger.info("Temporary file removed.")
+        import glob
+        if os.path.exists(name_py):
+            os.remove(name_py)
+            files = glob.glob("lib/*.pyi")
+            for file in files:
+                os.remove(file)
+            logger.info("Temporary file removed.")
 
 
 if __name__ == "__main__":
