@@ -4,5 +4,6 @@
         "org": "Nombre organización",
         "host": "influx host",
         "port": "influx port"
-    }
+    },
+    "bucket_not_considered": ["bucket_not_considered_1", "bucket_not_considered_2"]
 }
