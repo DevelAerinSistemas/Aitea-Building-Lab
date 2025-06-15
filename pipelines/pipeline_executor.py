@@ -66,6 +66,9 @@ class PipelineManager(object):
         steeps = pipeline_details.get("steeps")
         for element, params in steeps.items():
             one_instance = self._generate_instance(element, params)
+            if one_instance is None:
+                logger.critical(f"Error creating instance for {element}.")
+                exit(1)
             pipe_parts.append((element, one_instance))
         return Pipeline(pipe_parts)
 
@@ -86,16 +89,16 @@ class PipelineManager(object):
             module = importlib.import_module(module_name)
             the_class = getattr(module, class_elements[1])
             instance = the_class(**class_attributes)
-        except ModuleNotFoundError:
-            logger.error(f"Error: The module'{class_elements[0]}', not found")
-        except AttributeError:
-            logger.error(f"Error: The class '{class_elements[0]}' not found.")
+        except ModuleNotFoundError as e: 
+            logger.error(f"Error: The module'{class_elements[0]}', not found or other error in module: {e}")
+        except AttributeError as e:
+            logger.error(f"Error: The class '{class_elements[1]}' not found. {e}")
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
         return instance
 
 
-class PipelineExecutor(PipelineManager, ):
+class PipelineExecutor(PipelineManager):
     def __init__(self, configuration_definition_file: str, total_processing: int = 4, generate_so: bool = True, save_in_joblib: bool = False):
         """Initializes the PipelineExecutor with configuration and processing options.
 
@@ -108,7 +111,7 @@ class PipelineExecutor(PipelineManager, ):
         super().__init__(configuration_definition_file)
         self.total_processing = total_processing
         self.create_pipelines()
-        data_conection = load_json_file(os.getenv("INFLUX_CONNECTION"))
+        data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
         for name, pipes_data in self.pipes.items():
@@ -116,6 +119,7 @@ class PipelineExecutor(PipelineManager, ):
             influx.load_configuration()
             _, _ = influx.connect(True)
             pipes_data["connection"] = influx
+        self.bucket_not_considered = set(data_conection.get("bucket_not_considered", [])) 
 
     def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
@@ -129,6 +133,7 @@ class PipelineExecutor(PipelineManager, ):
         query_buckets = copy.deepcopy(pipe_data.get("training_query"))
         buckets = query_buckets.get("bucket", {}).get("bucket")
         influx_connection = pipe_data.get("connection")
+        buckets = self.get_all_buckets(buckets, influx_connection)
         dataframe_list = list()
         total_dataframe = None
         if isinstance(buckets, list):
@@ -186,7 +191,7 @@ class PipelineExecutor(PipelineManager, ):
             logger.info(f" End pipe fit. It is saved {training_file}")
             if self.generate_so:
                 logger.info("Creating shared object")
-                self.create_so(training_file)
+                self.launch_create_so(training_file)
 
     def error_handler(self, result):
         """Handles errors that occur during the fitting process.
@@ -196,9 +201,34 @@ class PipelineExecutor(PipelineManager, ):
         """
         logger.error(f"Error in fit {result}")
 
-    def create_so(self, model_path):
+    def launch_create_so(self, model_path: str) -> None:
+        """Launches the creation of a shared object.
+
+        Args:
+            model_path (str): Path to the model file.
+        """
         create_so(model_path=model_path)
         logger.info(f"Shared object created at {model_path}")
+    
+    
+    def get_all_buckets(self, actual_buckets: list, influx_connection: InfluxDBConnector) -> list:
+        """Get all buckets from the configuration.
+
+        Args:
+            actual_buckets (list): List of actual buckets.
+            influx_connection (InfluxDBConnector): InfluxDB connection object.
+
+        Returns:
+            list: List of all buckets.
+        """
+        all_buckets = []
+        if "all_buckets" in actual_buckets or "all" in actual_buckets:
+            all_buckets = set(influx_connection.get_bucket_list()) - self.bucket_not_considered   
+            all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
+        else:   
+            all_buckets = actual_buckets
+        return list(all_buckets)
+            
         
         
 
