@@ -42,6 +42,15 @@ class MetaTransform(ABC, BaseEstimator, TransformerMixin):
             str: Information about the transformation and version
         """
         pass
+    
+    @abstractmethod
+    def get_all_attributes(self):
+        """Returns all attributes of the model.
+        
+        Returns:
+            dict: A dictionary containing all attributes of the model.
+        """
+        pass
 
 
 
@@ -128,4 +137,11 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
         """
         pass
     
-
+    @abstractmethod
+    def get_all_attributes(self):
+        """Returns all attributes of the model.
+        
+        Returns:
+            dict: A dictionary containing all attributes of the model.
+        """
+        pass
