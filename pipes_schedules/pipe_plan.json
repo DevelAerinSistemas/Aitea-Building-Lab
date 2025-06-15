@@ -1,0 +1,21 @@
+{
+    "dataquality_mutua": {
+        "steeps": {
+            "data_quality_analysis.DataQualityAnalysis": {
+                "sensitivity threshold": 0.1
+               
+            }
+        },
+        "training_query": {
+            "bucket": {
+                "bucket": [
+                    "all"
+                ]
+            },
+            "range": {
+                "start": "2025-03-01T00:00:00.211Z", 
+                "stop": "2025-06-01T00:00:00.211Z"
+            }
+        }
+    }
+}
