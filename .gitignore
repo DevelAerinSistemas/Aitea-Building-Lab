@@ -7,10 +7,11 @@ __pycache__/
 venv/
 .env/
 
-# Archivos de configuración
+# Archivos de configuración internos o de desarrollo
 *.env
 *.ini
 *.cfg
+launch.json
 
 # Archivos de logs
 *.log
@@ -46,3 +47,5 @@ venv/
 # Cosas temporales
 *.tmp
 *temporal*
+*old*
+
