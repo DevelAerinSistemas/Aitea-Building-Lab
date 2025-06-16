@@ -50,6 +50,7 @@ class SOLibraryLoader:
         """
         Placeholder for a testing method that you will implement.
         """
+        results_dict = dict()
         if self.exec is not None:
             query = self.exec.get_query()
             # Extraemos la query
@@ -66,10 +67,11 @@ class SOLibraryLoader:
                     # Se ejecuta la predicción para cada edificio
                     one_prediction = self.exec.predict(data)
                     prediction_dict[bucket] = one_prediction
+                    results_dict[bucket] = self.exec.get_results()
         else:
             logger.error("Executor class instance is not initialized.")
         
-        return prediction_dict
+        return prediction_dict, results_dict
             
     def _compose_query(self, query: str, end_time: str, start_time: str) -> str:
         """
