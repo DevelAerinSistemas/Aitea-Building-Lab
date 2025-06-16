@@ -42,14 +42,17 @@ class PipelineManager(object):
                 f'"Error in configuration, the pipes cannot be trained')
         self.pipes = {}
 
-    def create_pipelines(self):
+    def create_pipelines(self, influx_connection: InfluxDBConnector, bucket_not_considered: set):
         """Create all pipes
         """
         if self.configuration:
             for pipe_name, pipe_values in self.configuration.items():
                 pipe = self.create_one_pipeline(pipe_values)
                 query = pipe_values.get("training_query")
+                bucket = query.get("bucket", {}).get("bucket")
+                final_buckets = self.get_valid_buckets(bucket, influx_connection, bucket_not_considered)
                 freq_info = pipe_values.get("freq_info")
+                query["bucket"]["bucket"] = final_buckets
                 self.pipes[pipe_name] = {
                     "pipe":  pipe, "training_query": query, "freq_info": freq_info}
 
@@ -71,6 +74,22 @@ class PipelineManager(object):
                 exit(1)
             pipe_parts.append((element, one_instance))
         return Pipeline(pipe_parts)
+    
+    def get_valid_buckets(self, actual_buckets: list, influx_connection: InfluxDBConnector, bucket_not_considered: set) -> list:
+       """Get all buckets from the configuration.
+       Args:
+           actual_buckets (list): List of actual buckets.
+           influx_connection (InfluxDBConnector): InfluxDB connection object.
+       Returns:
+           list: List of all buckets.
+       """
+       all_buckets = []
+       if "all_buckets" in actual_buckets or "all" in actual_buckets:
+           all_buckets = set(influx_connection.get_bucket_list()) - bucket_not_considered   
+           all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
+       else:   
+           all_buckets = actual_buckets
+       return list(all_buckets)
 
     def _generate_instance(self, class_path: str, class_attributes: dict) -> Any:
         """Create an instance
@@ -110,16 +129,21 @@ class PipelineExecutor(PipelineManager):
         """
         super().__init__(configuration_definition_file)
         self.total_processing = total_processing
-        self.create_pipelines()
         data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
+        temporan_influx = InfluxDBConnector(data_conection)
+        temporan_influx.load_configuration()
+        _, _ = temporan_influx.connect(True)
+        bucket_not_considered = set(data_conection.get("bucket_not_considered", []))
+        self.create_pipelines(temporan_influx, bucket_not_considered)
         for name, pipes_data in self.pipes.items():
             influx = InfluxDBConnector(data_conection)
             influx.load_configuration()
             _, _ = influx.connect(True)
             pipes_data["connection"] = influx
-        self.bucket_not_considered = set(data_conection.get("bucket_not_considered", [])) 
+         
+        
 
     def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
@@ -133,7 +157,6 @@ class PipelineExecutor(PipelineManager):
         query_buckets = copy.deepcopy(pipe_data.get("training_query"))
         buckets = query_buckets.get("bucket", {}).get("bucket")
         influx_connection = pipe_data.get("connection")
-        buckets = self.get_all_buckets(buckets, influx_connection)
         dataframe_list = list()
         total_dataframe = None
         if isinstance(buckets, list):
@@ -211,23 +234,7 @@ class PipelineExecutor(PipelineManager):
         logger.info(f"Shared object created at {model_path}")
     
     
-    def get_all_buckets(self, actual_buckets: list, influx_connection: InfluxDBConnector) -> list:
-        """Get all buckets from the configuration.
-
-        Args:
-            actual_buckets (list): List of actual buckets.
-            influx_connection (InfluxDBConnector): InfluxDB connection object.
-
-        Returns:
-            list: List of all buckets.
-        """
-        all_buckets = []
-        if "all_buckets" in actual_buckets or "all" in actual_buckets:
-            all_buckets = set(influx_connection.get_bucket_list()) - self.bucket_not_considered   
-            all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
-        else:   
-            all_buckets = actual_buckets
-        return list(all_buckets)
+   
             
         
         
