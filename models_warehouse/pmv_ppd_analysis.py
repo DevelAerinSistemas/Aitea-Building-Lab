@@ -341,8 +341,8 @@ class PMVPPDAnalysis(MetaModel):
                 X_filtered = X_bucket.copy()
                 X_filtered = X_bucket[X_bucket['_time'].isin(plant_on_times)][["_field", "floor", "_time", "_value"]]
                 # Umbrales
-                thresholds_co2 = self.thresholds.get("room_co2", (100, 1000))
-                thresholds_humidity = self.thresholds.get("room_humidity", (5, 45))
+                thresholds_co2 = self.thresholds.get("room_co2", (1, 1000))
+                thresholds_humidity = self.thresholds.get("room_humidity", (5, 95))
                 thresholds_temperature = self.thresholds.get("room_temperature", (5, 90))
                 # Valores sin filtrar
                 humidity = X_filtered[X_filtered['_field'] == "room_humidity"]

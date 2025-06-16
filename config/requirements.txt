@@ -1,0 +1,20 @@
+dill==0.3.8
+dotenv==0.9.9
+influxdb-client==1.44.0
+joblib==1.4.2
+loguru==0.7.2
+numpy==2.0.1
+onnx==1.16.2
+onnxconverter-common==1.14.0
+onnxruntime==1.19.2
+pandas==2.2.2
+pillow==11.2.1
+plotly==6.0.1
+pythermalcomfort==3.2.0
+python-dotenv==1.0.1
+pytz==2024.1
+scikit-learn==1.5.1
+scipy==1.14.1
+skl2onnx==1.17.0
+streamlit==1.45.1
+Nuitka @ https://github.com/Nuitka/Nuitka-commercial/archive/main.zip

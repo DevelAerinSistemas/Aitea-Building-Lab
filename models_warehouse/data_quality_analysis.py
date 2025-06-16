@@ -175,7 +175,7 @@ class DataQualityAnalysis(MetaModel):
         """
         freq_predictions = pd.DataFrame()
         actual_frequency = self._calculate_frequency(X.copy())
-        freq_predictions['frequency_deviation'] = None
+        freq_predictions['frequency_deviation'] = 0
         for index, row in actual_frequency.iterrows():
             nae = index
             bucket = row['bucket']
@@ -183,12 +183,13 @@ class DataQualityAnalysis(MetaModel):
                 expected_frequency = self.freq_matrix.loc[nae,
                                                           'mean_time_diff']
                 actual_frequency_value = row['mean_time_diff']
-                deviation = abs(actual_frequency_value - expected_frequency)
+                deviation = (actual_frequency_value/expected_frequency)
                 freq_predictions.loc[index, 'frequency_deviation'] = deviation
             else:
-                freq_predictions.loc[index, 'frequency_deviation'] = None
+                freq_predictions.loc[index, 'frequency_deviation'] = 0
             freq_predictions.loc[index, 'bucket'] = bucket
-            freq_predictions.loc[index, 'actual'] = actual_frequency_value
+            freq_predictions.loc[index, 'actual_frequency'] = 1/actual_frequency_value if actual_frequency_value != 0 else 0
+        freq_predictions = freq_predictions.reset_index()
         if self.freq_matrix.empty:
             logger.warning(
                 "Frequency matrix is empty. Please fit the model first.")
@@ -237,6 +238,7 @@ class DataQualityAnalysis(MetaModel):
                     co2[["_value", "_field", "floor", "range_status", "zone", "bucket"]])
         if predict_range:
             predict_range = pd.concat(predict_range, ignore_index=True)
+            predict_range.columns = [col.lstrip('_') for col in predict_range.columns]
             range_predictions = predict_range
 
         return range_predictions
