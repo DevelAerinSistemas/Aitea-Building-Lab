@@ -42,6 +42,17 @@ def main():
         placeholder="Select a library..."
     )
 
+    if library_name:
+        st.write(f"You selected: {library_name}")
+        loader = SOLibraryLoader(library_name)
+        info = loader.exec.get_info() if loader.exec else None
+        if info:
+            st.markdown("### Library Information:")
+            for key, value in info.items():
+                st.markdown(f"**{key}:**")
+                st.markdown(f"<pre>{value}</pre>", unsafe_allow_html=True)
+        else:
+            st.warning("No information available for the selected library.")
    
     col1, col2 = st.columns(2)
     with col1:
