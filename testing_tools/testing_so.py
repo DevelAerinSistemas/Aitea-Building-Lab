@@ -113,6 +113,21 @@ class SOLibraryLoader:
         else:
             logger.warning("No library loaded, cannot analyze.")
     
+    def get_info(self):
+        """
+        Retrieves information about the loaded library.
+
+        Returns:
+            dict: Information about the library.
+        """
+        info = {}
+        if self.exec is not None:
+            info = self.exec.get_info()
+           
+        else:
+            logger.error("Executor class instance is not initialized.")
+        return info
+    
     def check_query(self):
         """
         Checks the query and logs the result.
