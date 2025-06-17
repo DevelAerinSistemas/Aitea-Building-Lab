@@ -40,7 +40,7 @@ def read_json_schedule_plan(path: str) -> dict:
         if not ok:
             data = None
             logger.error(
-                "Error: Essential elements are missing in the pipeline configuration. Make sure it looks like this:  'pipe_name': { 'steeps': { 'analytic_file_name.Trasform_or_ModelCLass': {} }, 'datetime': { 'start': '', 'freq': ''}")
+                "Error: Essential elements are missing in the pipeline configuration. Make sure it looks like this:  'pipe_name': { 'steps': { 'analytic_file_name.Trasform_or_ModelCLass': {} }, 'datetime': { 'start': '', 'freq': ''}")
     return data
 
 
@@ -57,7 +57,7 @@ def check_configure(data_json: dict) -> bool:
     for key, values in data_json.items():
         if isinstance(values, dict):
             keys = list(values.keys())
-            if 'steeps' not in keys or not 'training_query' in keys:
+            if 'steps' not in keys or not 'training_query' in keys:
                 ok = False
     return ok
 
