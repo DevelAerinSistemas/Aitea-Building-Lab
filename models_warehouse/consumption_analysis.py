@@ -25,11 +25,17 @@ from sklearn.ensemble import IsolationForest
 from metaclass.templates import MetaModel
 
 
+WEEK_DAYS = [0, 1, 2, 3, 4]
+WEEKEND_DAYS = [5, 6]
+LABOR_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+NOT_LABOR_HOURS = [0, 1, 2, 3, 4, 5, 20, 21, 22, 23]
+
+
 class ConsumptionAnalysis(MetaModel):
     """Consumption Analysis
     """
 
-    def __init__(self, columns: list, model_type: str = "IF", fit_attributes: list = ["_value", "is_weekend", "hour"], freq: float = 0.5, z_score_threshold: float = 2.4) -> None:
+    def __init__(self, columns: list, model_type: str = "IF", fit_attributes: list = ["_value", "week_day", "hour", "location_numeric"], freq: float = 0.5, z_score_threshold: float = 2.4) -> None:
         """Constructor
 
         Args:
@@ -191,40 +197,64 @@ class ConsumptionAnalysis(MetaModel):
         """
         dictionary_results_one_building = dict()
         floor = building_X["floor"].unique()
+        location_codes, location_categories, building_X_cpy = self._transform(
+            building_X, fit=True, building=building_X["bucket"].unique()[0])
         for f in floor:
-            data_floor = building_X[building_X["floor"] == f]
+            data_floor = building_X_cpy[building_X_cpy["floor"] == f]
             modules = data_floor["module"].unique()
             result_by_modules = dict()
             for m in modules:
                 data_floor_module = data_floor[data_floor["module"] == m]
-                data_floor_module_grouped = data_floor_module.groupby(
-                    ["_time", "module"])["_value"].sum().reset_index()
-                data_floor_module_grouped.loc[:, 'is_weekend'] = data_floor_module_grouped['_time'].dt.dayofweek.apply(
-                    lambda x: 1 if x >= 5 else 0)
-                data_floor_module_grouped.loc[:,
-                                              'hour'] = data_floor_module_grouped['_time'].dt.hour
-                data_floor_module_grouped.loc[:, 'module_numeric'] = pd.factorize(
-                    data_floor_module_grouped['module'])[0]
-                data_floor_module_grouped.loc[:, "activity_period"] = data_floor_module_grouped["hour"].apply(
-                    lambda x: "activity" if 6 <= x < 21 else "no_activity")
-                data_floor_module_grouped_weekend = data_floor_module_grouped[
-                    data_floor_module_grouped["is_weekend"] == 1]
-                data_floor_module_grouped_week = data_floor_module_grouped[
-                    data_floor_module_grouped["is_weekend"] == 0]
-                mean_values_weekend = data_floor_module_grouped_weekend.groupby("activity_period")[
-                    "_value"].mean()
-                mean_values_week = data_floor_module_grouped_week.groupby("activity_period")[
-                    "_value"].mean()
-                std_values_weekend = data_floor_module_grouped_weekend.groupby("activity_period")[
-                    "_value"].std()
-                std_values_week = data_floor_module_grouped_week.groupby("activity_period")[
-                    "_value"].std()
-
-                fit_model = self._model(data_floor_module_grouped)
-                result_by_modules[m] = {"fit_model": fit_model, "mean_values_weekend": mean_values_weekend,
-                                        "mean_values_week": mean_values_week, "std_values_weekend": std_values_weekend, "std_values_week": std_values_week}
+                data_floor_module_week = data_floor_module[data_floor_module["week_day"].isin(
+                    WEEK_DAYS)]
+                data_floor_module_week_labor = data_floor_module_week[data_floor_module_week["hour"].isin(
+                    LABOR_HOURS)]
+                data_floor_module_week_not_labor = data_floor_module_week[data_floor_module_week["hour"].isin(
+                    NOT_LABOR_HOURS)]
+                data_floor_module_weekend = data_floor_module[data_floor_module["week_day"].isin(
+                    WEEKEND_DAYS)]
+                mean_values_weekend = data_floor_module_weekend["_value"].mean(
+                )
+                std_values_weekend = data_floor_module_weekend["_value"].std()
+                mean_values_week_labor = data_floor_module_week_labor["_value"].mean(
+                )
+                std_values_week_labor = data_floor_module_week_labor["_value"].std(
+                )
+                mean_values_week_not_labor = data_floor_module_week_not_labor["_value"].mean(
+                )
+                std_values_week_not_labor = data_floor_module_week_not_labor["_value"].std(
+                )
+                result_by_modules[m] = {"mean_values_weekend": mean_values_weekend, "std_values_weekend": std_values_weekend, "mean_values_week_labor": mean_values_week_labor,
+                                        "std_values_week_labor": std_values_week_labor, "mean_values_week_not_labor": mean_values_week_not_labor, "std_values_week_not_labor": std_values_week_not_labor}
             dictionary_results_one_building[f] = result_by_modules
+        dictionary_results_one_building["location_categories"] = location_categories
+        model = self._model(building_X_cpy)
+        dictionary_results_one_building["model"] = model
         return dictionary_results_one_building
+
+    def _transform(self, X: pd.DataFrame, fit: bool = False, building: str = None) -> pd.DataFrame:
+        X_transformed = X.copy()
+        X_transformed.loc[:, "location"] = X_transformed["floor"].astype(
+            str) + "_" + X["module"].astype(str)
+        X_transformed = X_transformed.groupby(["location", "_time"], as_index=False).agg(
+            {"_value": "sum", "floor": "first", "module": "first"})
+        X_transformed = X_transformed.dropna()
+        X_transformed.loc[:, 'week_day'] = X_transformed['_time'].dt.dayofweek
+        X_transformed.loc[:, 'hour'] = X_transformed['_time'].dt.hour
+        if fit:
+            location_codes, location_categories = pd.factorize(
+                X_transformed['location'])
+            X_transformed.loc[:, 'location_numeric'] = location_codes
+
+        else:
+            location_codes = None
+            location_categories = self.models_matrix.get(
+                building).get("location_categories")
+            mapping_dict = {cat: i for i,
+                            cat in enumerate(location_categories)}
+            X_transformed.loc[:, 'location_numeric'] = X_transformed['location'].map(
+                lambda x: mapping_dict.get(x, -1))
+        return location_codes, location_categories, X_transformed
 
     def _transform_and_predict(self, X: pd.DataFrame) -> pd.DataFrame:
         """Transform the data to fit the model
@@ -240,45 +270,24 @@ class ConsumptionAnalysis(MetaModel):
         columns = [col for col in self.columns if col !=
                    "bucket" and col != "floor"] + ["_time"]
         building_to_predict = X["bucket"].unique()
-        floor_to_predict = X["floor"].unique()
         return_value = None
         if self.models_matrix:
             prediction_result_append = []
             for b in building_to_predict:
-                for f in floor_to_predict:
-                    data_floor = X[X["floor"] == f]
-                    modules_to_predict = data_floor["module"].unique()
-                    for m in modules_to_predict:
-                        try:
-                            matrix_fit_data = self.models_matrix[b][f][m]
-                        except KeyError:
-                            logger.error(
-                                f"[{self.__class__.__name__}] - Model not found for bucket: {b}, floor: {f}, module: {m}")
-                            continue
-                        model = matrix_fit_data["fit_model"]
-                        data_floor_module = data_floor[data_floor["module"] == m]
-                        if data_floor_module.empty:
-                            continue
-                        data_floor_module_grouped = data_floor_module.groupby(
-                            ["_time", "module"])["_value"].sum().reset_index()
-                        data_floor_module_grouped.loc[:, 'is_weekend'] = data_floor_module_grouped['_time'].dt.dayofweek.apply(
-                            lambda x: 1 if x >= 5 else 0)
-                        data_floor_module_grouped.loc[:,
-                                                      'hour'] = data_floor_module_grouped['_time'].dt.hour
-                        data_floor_module_grouped.loc[:, 'module_numeric'] = pd.factorize(
-                            data_floor_module_grouped['module'])[0]
-                        data_floor_module_grouped.loc[:, "activity_period"] = data_floor_module_grouped["hour"].apply(
-                            lambda x: "activity" if 6 <= x < 21 else "no_activity")
-                        prediction = model.predict(
-                            data_floor_module_grouped[self.fit_attributes])
-                        data_floor_module_grouped.loc[:,
-                                                      "prediction"] = prediction
-                        data_floor_module_grouped.loc[:, "floor"] = f
-                        data_floor_module_grouped.loc[:, "bucket"] = b
-                        data_floor_module_grouped.loc[:, "z-score"] = data_floor_module_grouped.apply(
-                            lambda row: self._z_score(row, matrix_fit_data), axis=1)
-                        prediction_result_append.append(
-                            data_floor_module_grouped)
+                _, _, data_building_to_predict = self._transform(
+                    X[X["bucket"] == b].copy(), fit=False, building=b)
+                try:
+                    model = self.models_matrix[b].get("model")
+                except KeyError:
+                    continue
+                prediction_result = model.predict(
+                    data_building_to_predict[self.fit_attributes])
+                data_building_to_predict.loc[:,
+                                             "prediction"] = prediction_result
+                data_building_to_predict.loc[:, "z-score"] = data_building_to_predict.apply(
+                    lambda row: self._z_score(row, self.models_matrix[b][row["floor"]][row["module"]]), axis=1)
+                data_building_to_predict.loc[:, "bucket"] = b
+                prediction_result_append.append(data_building_to_predict)
         else:
             logger.error(
                 f"[{self.__class__.__name__}] - Model not fitted, the prediction is not possible")
@@ -297,6 +306,7 @@ class ConsumptionAnalysis(MetaModel):
         Returns:
             Any: Fit model
         """
+        fit_model = None
         if self.model_type == "LOF":
             fit_model = LocalOutlierFactor(
                 novelty=True).fit(data_models[self.fit_attributes])
@@ -312,6 +322,8 @@ class ConsumptionAnalysis(MetaModel):
         else:
             logger.error(
                 f"[{self.__class__.__name__}] - Model not found: {self.model_type}")
+        if fit_model:
+            self.clean_model(fit_model)
         return fit_model
 
     def _z_score(self, x: float, matrix_fit_values: dict) -> float:
@@ -324,16 +336,20 @@ class ConsumptionAnalysis(MetaModel):
         Returns:
             float: Z-score
         """
-        is_weekend = x["is_weekend"]
-        hour = x["hour"]
-        activity_period = x["activity_period"]
+        is_weekend = x["week_day"] > 4
+        is_labor = x["hour"] in [0, 1, 2, 3,
+                                 4, 5, 20, 21, 22, 23] == "activity"
         if is_weekend:
-            mean = matrix_fit_values["mean_values_weekend"][activity_period]
-            std = matrix_fit_values["std_values_weekend"][activity_period]
+            mean = matrix_fit_values["mean_values_weekend"]
+            std = matrix_fit_values["std_values_weekend"]
         else:
-            mean = matrix_fit_values["mean_values_week"][activity_period]
-            std = matrix_fit_values["std_values_week"][activity_period]
-        return (x["_value"] - mean) / std
+            if is_labor:
+                mean = matrix_fit_values["mean_values_week_labor"]
+                std = matrix_fit_values["std_values_week_labor"]
+            else:
+                mean = matrix_fit_values["mean_values_week_not_labor"]
+                std = matrix_fit_values["std_values_week_not_labor"]
+        return (x["_value"] - mean) / std if std != 0 else 0
 
 
 if __name__ == "__main__":
@@ -343,29 +359,27 @@ if __name__ == "__main__":
     import os
     import pickle
 
-    data_conection = load_json_file(os.getenv("INFLUX_CONNECTION"))
-#
-    # query_dict = dict()
-    # query_dict["bucket"] = {"bucket": "recoletos_37"}
-    # query_dict["range"] = {
-    #    "start": "2024-10-01T00:11:52.211Z", "stop": "2024-12-10T00:11:52.211Z"}
-    # query_dict["tag_is"] = [{"tag_name": "element",
-    #                         "tag_value": "electrical_network_analyzer"}]
-    # query_dict["filter_field"] = [{"field": "active_energy"}]
-    # query_dict["window_aggregation"] = {
-    #    "every": "30m", "function": "max", "create_empty": "true"}
-    # query_dict["fill"] = {"columns": "_value", "previous": "true"}
-    # query_dict["difference"] = {"non_negative": "true"}
-#
-    # influx = InfluxDBConnector(data_conection)
-    # influx.load_configuration()
-    # influx.connect(True)
-    # query_flux = influx.compose_influx_query_from_dict(query_dict)
-    # data = influx.query(query=query_flux, pandas=True)
+    data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
+    query_dict = dict()
+    query_dict["bucket"] = {"bucket": "recoletos_37"}
+    query_dict["range"] = {
+        "start": "2025-01-18T00:11:52.211Z", "stop": "2025-01-19T00:11:52.211Z"}
+    query_dict["tag_is"] = [{"tag_name": "element",
+                            "tag_value": "electrical_network_analyzer"}]
+    query_dict["filter_field"] = [{"field": "active_energy"}]
+    query_dict["window_aggregation"] = {
+        "every": "1h", "function": "max", "create_empty": "true"}
+    query_dict["fill"] = {"columns": "_value", "previous": "true"}
+    query_dict["difference"] = {"non_negative": "true"}
+    influx = InfluxDBConnector(data_conection)
+    influx.load_configuration()
+    influx.connect(True)
+    query_flux = influx.compose_influx_query_from_dict(query_dict)
+    data = influx.query(query=query_flux, pandas=True)
     columns = ["_time", "bucket", "floor", "module", "_value"]
-    # data.loc[:, "bucket"] = "recoletos_37"
+    data.loc[:, "bucket"] = "recoletos_37"
     c_anal = ConsumptionAnalysis(columns)
-    # c_anal.fit(data)
+    c_anal.fit(data)
 
     # c_anal.upadate_default_values(z_score_threshold=17)
 
@@ -375,17 +389,17 @@ if __name__ == "__main__":
     query_dict = dict()
     query_dict["bucket"] = {"bucket": "recoletos_37"}
     query_dict["range"] = {
-        "start": "2024-12-10T00:11:52.211Z", "stop": "2024-12-20T10:11:52.211Z"}
+        "start": "2025-01-18T00:11:52.211Z", "stop": "2025-01-19T00:11:52.211Z"}
     query_dict["tag_is"] = [{"tag_name": "element",
                              "tag_value": "electrical_network_analyzer"}]
     query_dict["filter_field"] = [{"field": "active_energy"}]
     query_dict["window_aggregation"] = {
-        "every": "30m", "function": "max", "create_empty": "true"}
+        "every": "1h", "function": "max", "create_empty": "true"}
     query_dict["fill"] = {"columns": "_value", "previous": "true"}
     query_dict["difference"] = {"non_negative": "true"}
     query_flux = influx.compose_influx_query_from_dict(query_dict)
     data = influx.query(query=query_flux, pandas=True)
-    data.loc[:, "bucket"] = "recoletos_36"
+    data.loc[:, "bucket"] = "recoletos_37"
     result = c_anal.predict(data)
 
     print(c_anal.get_results(result))

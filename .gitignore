@@ -7,10 +7,11 @@ __pycache__/
 venv/
 .env/
 
-# Archivos de configuración
+# Archivos de configuración internos o de desarrollo
 *.env
 *.ini
 *.cfg
+launch.json
 
 # Archivos de logs
 *.log
@@ -20,6 +21,7 @@ venv/
 
 # Archivos de Jupyter Notebook
 .ipynb_checkpoints/
+*.ipynb
 
 # Archivos de caché de herramientas
 .cache/
@@ -27,6 +29,23 @@ venv/
 
 # Modelos entrenados
 *.pkl
+*.pklz
+*.joblib
+*pkl_lite
+
 
 # Cosas de los binarios
 *.pyi
+
+
+# Archivos binarios     
+*.so
+
+# Configuraciones locales (contienen _local en el nombre)
+*local*
+
+# Cosas temporales
+*.tmp
+*temporal*
+*old*
+

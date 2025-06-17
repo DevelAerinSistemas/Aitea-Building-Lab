@@ -1,6 +1,6 @@
 {
     "temperature_confort": {
-        "steeps": {
+        "steps": {
             "confort_temperature_analysis.ConfortTemperatureTransform": {
                 "values_dictionary": {
                     "start_values": [
@@ -64,7 +64,7 @@
         }
     }, 
        "consumption_analysis": {
-        "steeps": {
+        "steps": {
             "consumption_analysis.ConsumptionAnalysis": {
                     "columns": [ "_time", "bucket", "floor", "module", "_value"]
             }

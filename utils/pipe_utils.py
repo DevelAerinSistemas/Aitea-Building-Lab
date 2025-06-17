@@ -13,6 +13,7 @@ import time
 from loguru import logger
 import pandas as pd
 from datetime import datetime
+import joblib
 import dill
 
 
@@ -39,7 +40,7 @@ def read_json_schedule_plan(path: str) -> dict:
         if not ok:
             data = None
             logger.error(
-                "Error: Essential elements are missing in the pipeline configuration. Make sure it looks like this:  'pipe_name': { 'steeps': { 'analytic_file_name.Trasform_or_ModelCLass': {} }, 'datetime': { 'start': '', 'freq': ''}")
+                "Error: Essential elements are missing in the pipeline configuration. Make sure it looks like this:  'pipe_name': { 'steps': { 'analytic_file_name.Trasform_or_ModelCLass': {} }, 'datetime': { 'start': '', 'freq': ''}")
     return data
 
 
@@ -56,20 +57,25 @@ def check_configure(data_json: dict) -> bool:
     for key, values in data_json.items():
         if isinstance(values, dict):
             keys = list(values.keys())
-            if 'steeps' not in keys or not 'freq_info' in keys or not 'training_query' in keys:
+            if 'steps' not in keys or not 'training_query' in keys:
                 ok = False
     return ok
 
 
-def lab_fit(data: pd.DataFrame, pipe_core: dict):
+def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
     """Make a pipe fit
 
     Args:
         data (pd.DataFrame): Data
         pipe_core (dict): Pipe core 
+        fit_and_predict (bool): Flag to indicate if fit and predict should be performed
 
     Returns:
-        _type_: A fit pipe
+        dictionary: A fit pipe in a dictionary with the following keys 
+        - pipe_name: Name of the pipe
+        - pipe: The fitted pipe object
+        - training_query: The query used for training
+        - date: The date and time of fitting
     """
     timi_i = time.time()
     logger.info(f"Starting pipe fitting for {pipe_core}")
@@ -79,27 +85,40 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict):
         name = pipe_core["name"]
         try:
             logger.info("Start fit")
-            pipe.fit(data)
+            if fit_and_predict:
+                logger.info("Start fit and predict")
+                pipe.fit_predict(data)
+            else:
+                logger.info("Start fit")
+                pipe.fit(data)
         except Exception as err:
             logger.error(f" Fail fit {err}")
             return "InsufficientDataError"
     except Exception as err:
         return "KeyError"
     training_pipe = {"pipe_name": name, "pipe": pipe, "training_query": query,  "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    logger.info(f"Enf pipe fitting for {pipe_core} in {time.time() - timi_i}")
+    logger.info(f"End pipe fitting for {pipe_core} in {time.time() - timi_i}")
     return training_pipe
 
-def pipe_save(pipe_data:dict):
+def pipe_save(pipe_data:dict, save_in_joblib: bool = False):
     """Save a pipe
 
     Args:
         pipe_data (dict): Pipe dict, info + pipe core
+        save_in_joblib (bool, optional): Flag to indicate if the pipe should be saved in joblib format. Defaults to False.
+    Returns:
+        str: Path to the saved pipe    
     """
-    dill.settings['recurse'] = True
-    name = pipe_data.get("pipe_name")
-    path = "training_models/" + name + ".pkl"
-    with open(path, "wb") as f:
-        dill.dump(pipe_data, f)
+    if save_in_joblib:
+        path = "training_models/" + pipe_data.get("pipe_name") + ".joblib"
+        joblib.dump(pipe_data, path)
+    else:
+        dill.settings['recurse'] = True
+        name = pipe_data.get("pipe_name")
+        path = "training_models/" + name + ".pkl"
+        with open(path, "wb") as f:
+            dill.dump(pipe_data, f)
+    return path
 
 def load_pipe(path: str):
     """Load a pipe 

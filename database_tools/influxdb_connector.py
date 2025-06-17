@@ -1,17 +1,18 @@
-#!/usr/bin/env python3
-# -*- coding:utf-8 -*-
-###
-# File: influxdb_connector.py
-# Project: Aitea-Brain
-# File Created: Thursday, 7th March 2024 11:23:09 pm
-# Author: Jose Masache Cevallos (jose.masache@aitea.tech)
-# Version: 1.0.0
-# -----
-# Last Modified: Monday, 4th November 2024 9:29:34 pm
-# Modified By: Jose Masache Cevallos
-# -----
-# Copyright (c) 2024 - 2024 Aitea Tech S. L. copying, distribution or modification not authorised in writing is prohibited.
-###
+'''
+ # @ Project: AItea-Brain-Lite
+ # @ Author: Aerin S.L.
+ # @ Create Time: 2025-03-28 13:29:53
+ # @ Description:
+ # @ Version: 1.0.0
+ # @ -------:
+ # @ Modified by: Aerin S.L.
+ # @ Modified time: 2025-05-24 20:48:06
+ # @ License: This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
+; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
+ '''
 
 
 from utils.file_utils import get_influx_queries
@@ -90,9 +91,8 @@ class InfluxDBConnector(object):
         if self.global_config:
             try:
                 url = "http://" + self.host + ":" + str(self.port)
-                print(self.org, self.token)
                 self.influx_client = InfluxDBClient(
-                    url=url, org=self.org, token=self.token, timeout=(6000, 5000))
+                    url=url, org=self.org, token=self.token, timeout=(7000, 10000))
                 self.am_bucket_api = BucketsApi(self.influx_client)
                 self.influx_client_writer = self.influx_client.write_api(
                     write_options=WriteOptions(batch_size=1000, flush_interval=10_000))
@@ -376,6 +376,12 @@ class InfluxDBConnector(object):
                         row_key_dumped = json.dumps(row_key)
                         value["row_key"] = row_key_dumped
                     one_template = self.queries[key].format(**value)    
+                elif key == "keep_columns":
+                    columns = value.get("columns")
+                    if columns:
+                        columns_dumped = json.dumps(columns)
+                        value["columns"] = columns_dumped
+                    one_template = self.queries[key].format(**value)
                 else:
                     one_template = self.queries[key].format(**value)
                 query += "\n" + one_template
