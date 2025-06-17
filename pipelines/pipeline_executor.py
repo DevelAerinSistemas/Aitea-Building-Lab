@@ -66,8 +66,8 @@ class PipelineManager(object):
             Pipeline: One scikit-learn pipeline
         """
         pipe_parts = []
-        steeps = pipeline_details.get("steeps")
-        for element, params in steeps.items():
+        steps = pipeline_details.get("steps")
+        for element, params in steps.items():
             one_instance = self._generate_instance(element, params)
             if one_instance is None:
                 logger.critical(f"Error creating instance for {element}.")
@@ -233,13 +233,10 @@ class PipelineExecutor(PipelineManager):
         create_so(model_path=model_path)
         logger.info(f"Shared object created at {model_path}")
     
-    
-   
-            
-        
+
         
 
 if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=True, save_in_joblib=False)
-    pipe.pipes_executor(testing=False)
+    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=False, save_in_joblib=False)
+    pipe.pipes_executor(testing=True)
     logger.info("Pipeline execution completed.")
