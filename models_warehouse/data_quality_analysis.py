@@ -119,11 +119,16 @@ class DataQualityAnalysis(MetaModel):
     def predict_proba(self, X: pd.DataFrame):
         pass
 
-    def get_info(self):
-        """Returns information about the model.
+    def get_info(self) -> str:
+        """Returns a string containing information about the model.
+        This includes the class name, version, and a brief description of its functionality.
+
+        Returns:
+            str: A string containing information about the model.
         """
-        info = f"{self.__class__.__name__} - Version: {LIBRARY_VERSION}\n: This model analyzes PMV and PPD values based on input data.\n"
+        info = f"{self.__class__.__name__} - Version: {LIBRARY_VERSION}\nDescription: This model establishes data quality.\n"
         info += "It calculates the frequency of each value grouped by 'nae', computes TDigest for temperature, humidity, and CO2, and determines outlier ranges based on the TDigest data."
+        return info
 
     def get_results(self) -> dict:
         """Returns the result dictionary.
