@@ -237,6 +237,6 @@ class PipelineExecutor(PipelineManager):
         
 
 if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=False, save_in_joblib=False)
-    pipe.pipes_executor(testing=True)
+    pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=True, save_in_joblib=False)
+    pipe.pipes_executor(testing=False)
     logger.info("Pipeline execution completed.")
