@@ -5,7 +5,6 @@ __pycache__/
 
 # Entornos virtuales
 venv/
-.env/
 
 # Archivos de configuración internos o de desarrollo
 *.env

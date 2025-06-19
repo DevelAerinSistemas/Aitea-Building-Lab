@@ -32,8 +32,29 @@ class MetaTransform(ABC, BaseEstimator, TransformerMixin):
 
     @abstractmethod
     def transform(self, X: Any) -> Any:
+        """Transform the data
+
+        Args:
+            X (Any): Pandas o numpy with data to transform
+        
+        Returns:
+            np.ndarray: Transformed data
+        """
         pass
     
+    @abstractmethod
+    def fit_transform(self, X: Any, y: Any) -> Any:
+        """First training is done and then a transformation
+
+        Args:
+            X (Any):Pandas o numpy with data to predict
+            y (Any): Pandas o numpy with training data
+
+        Returns:
+            np.ndarray: Predict
+        """
+        pass
+
     @abstractmethod
     def get_info(self) -> str:
         """Get the information of the transformation and version
@@ -52,6 +73,14 @@ class MetaTransform(ABC, BaseEstimator, TransformerMixin):
         """
         pass
 
+    @abstractmethod
+    def get_results(self) -> Any:
+        """Get the results of the model
+
+        Returns:
+            Any: Results
+        """
+        pass
 
 
 class MetaModel(ABC, BaseEstimator, TransformerMixin):
@@ -86,6 +115,7 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
 
         Args:
             X (Any):Pandas o numpy with data to predict
+            y (Any): Pandas o numpy with training data
 
         Returns:
             np.ndarray: Predict
@@ -115,7 +145,7 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
         pass
     
     def clean_model(self, model: Any):
-        """Get the results of the model
+        """Cleans the results of the model
 
         Returns:
             Any: Results

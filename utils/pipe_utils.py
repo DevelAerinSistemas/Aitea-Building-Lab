@@ -96,7 +96,12 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
             return "InsufficientDataError"
     except Exception as err:
         return "KeyError"
-    training_pipe = {"pipe_name": name, "pipe": pipe, "training_query": query,  "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    training_pipe = {
+        "pipe_name": name, 
+        "pipe": pipe, 
+        "training_query": query,  
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
     logger.info(f"End pipe fitting for {pipe_core} in {time.time() - timi_i}")
     return training_pipe
 

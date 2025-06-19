@@ -23,26 +23,30 @@ import os
 
 from database_tools.influxdb_connector import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
-from utils.file_utils import load_json_file
+from utils.file_utils import load_json_file, get_configuration
+from utils.logger_config import get_logger
 from utils.so_utils import create_so
 from exceptions.fit_exception import InsufficientDataError
 
 
+logger = get_logger()
+
 class PipelineManager(object):
+
+    @logger.catch
     def __init__(self, configuration_definition_file: str):
         """Create and manage scikit-learn pipelines
 
         Args:
             configuration_definition_file (str): Configuration file 
         """
-        self.configuration = read_json_schedule_plan(
-            configuration_definition_file)
+        self.configuration = read_json_schedule_plan(configuration_definition_file)
         if self.configuration is None:
-            logger.error(
-                f'"Error in configuration, the pipes cannot be trained')
+            logger.error(f'"Error in configuration, the pipes cannot be trained')
         self.pipes = {}
 
-    def create_pipelines(self, influx_connection: InfluxDBConnector, bucket_not_considered: set):
+    @logger.catch
+    def create_pipelines(self, influxdb_conn: InfluxDBConnector, bucket_not_considered: set):
         """Create all pipes
         """
         if self.configuration:
@@ -50,12 +54,12 @@ class PipelineManager(object):
                 pipe = self.create_one_pipeline(pipe_values)
                 query = pipe_values.get("training_query")
                 bucket = query.get("bucket", {}).get("bucket")
-                final_buckets = self.get_valid_buckets(bucket, influx_connection, bucket_not_considered)
+                final_buckets = self.get_valid_buckets(bucket, influxdb_conn, bucket_not_considered)
                 freq_info = pipe_values.get("freq_info")
                 query["bucket"]["bucket"] = final_buckets
-                self.pipes[pipe_name] = {
-                    "pipe":  pipe, "training_query": query, "freq_info": freq_info}
+                self.pipes[pipe_name] = {"pipe":  pipe, "training_query": query, "freq_info": freq_info}
 
+    @logger.catch
     def create_one_pipeline(self, pipeline_details: dict) -> Pipeline:
         """Create one pipe
 
@@ -75,22 +79,24 @@ class PipelineManager(object):
             pipe_parts.append((element, one_instance))
         return Pipeline(pipe_parts)
     
-    def get_valid_buckets(self, actual_buckets: list, influx_connection: InfluxDBConnector, bucket_not_considered: set) -> list:
+    @logger.catch
+    def get_valid_buckets(self, actual_buckets: list, influxdb_conn: InfluxDBConnector, bucket_not_considered: set) -> list:
        """Get all buckets from the configuration.
        Args:
            actual_buckets (list): List of actual buckets.
-           influx_connection (InfluxDBConnector): InfluxDB connection object.
+           influxdb_conn (InfluxDBConnector): InfluxDB connection object.
        Returns:
            list: List of all buckets.
        """
        all_buckets = []
        if "all_buckets" in actual_buckets or "all" in actual_buckets:
-           all_buckets = set(influx_connection.get_bucket_list()) - bucket_not_considered   
+           all_buckets = set(influxdb_conn.get_bucket_list()) - bucket_not_considered   
            all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
        else:   
            all_buckets = actual_buckets
        return list(all_buckets)
 
+    @logger.catch
     def _generate_instance(self, class_path: str, class_attributes: dict) -> Any:
         """Create an instance
 
@@ -118,6 +124,8 @@ class PipelineManager(object):
 
 
 class PipelineExecutor(PipelineManager):
+
+    @logger.catch
     def __init__(self, configuration_definition_file: str, total_processing: int = 4, generate_so: bool = True, save_in_joblib: bool = False):
         """Initializes the PipelineExecutor with configuration and processing options.
 
@@ -129,22 +137,16 @@ class PipelineExecutor(PipelineManager):
         """
         super().__init__(configuration_definition_file)
         self.total_processing = total_processing
-        data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
-        temporan_influx = InfluxDBConnector(data_conection)
-        temporan_influx.load_configuration()
-        _, _ = temporan_influx.connect(True)
-        bucket_not_considered = set(data_conection.get("bucket_not_considered", []))
-        self.create_pipelines(temporan_influx, bucket_not_considered)
+        config = get_configuration()
+        influxdb_conn = InfluxDBConnector()
+        bucket_not_considered = set(config.get("bucket_not_considered", []))
+        self.create_pipelines(influxdb_conn, bucket_not_considered)
         for name, pipes_data in self.pipes.items():
-            influx = InfluxDBConnector(data_conection)
-            influx.load_configuration()
-            _, _ = influx.connect(True)
-            pipes_data["connection"] = influx
-         
+            pipes_data["connection"] = influxdb_conn
         
-
+    @logger.catch
     def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
 
@@ -156,15 +158,15 @@ class PipelineExecutor(PipelineManager):
         """
         query_buckets = copy.deepcopy(pipe_data.get("training_query"))
         buckets = query_buckets.get("bucket", {}).get("bucket")
-        influx_connection = pipe_data.get("connection")
+        influxdb_conn = pipe_data.get("connection")
         dataframe_list = list()
         total_dataframe = None
         if isinstance(buckets, list):
             for bucket in buckets:
                 query_buckets["bucket"]["bucket"] = bucket
                 logger.info(f" Start query in  {bucket}")
-                query = influx_connection.compose_influx_query_from_dict(query_buckets)
-                stream_data = influx_connection.query(
+                query = influxdb_conn.compose_influx_query_from_dict(query_buckets)
+                stream_data = influxdb_conn.query(
                     query=query, pandas=True, stream=False)
                 if stream_data is None:
                     continue
@@ -175,6 +177,7 @@ class PipelineExecutor(PipelineManager):
                 total_dataframe = pd.concat(dataframe_list, ignore_index=True)  # Added ignore_index=True for better concatenation
         return total_dataframe
 
+    @logger.catch
     def pipes_executor(self, testing: bool = False):
         """Executes the pipeline tasks using multiprocessing.
 
@@ -183,22 +186,28 @@ class PipelineExecutor(PipelineManager):
         """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipes.items():
-                logger.info(
-                    f"Acquiring influx data to perform task to {pipe_name}")
+                logger.info(f"Acquiring influx data to perform task to {pipe_name}")
                 data = self.data_preparation(pipe_info)
                 if data is None:
                     logger.warning("Empty data, can't do training")
                     continue
                 else:
-                    pipe_core = {"name": pipe_name, "pipe": pipe_info.get(
-                        "pipe"), "training_query":  pipe_info.get("training_query")}
-                    pool.apply_async(lab_fit, args=(data, pipe_core, testing),
-                                     callback=self.task_handler,
-                                     error_callback=self.error_handler)
+                    pipe_core = {
+                        "name": pipe_name, 
+                        "pipe": pipe_info.get("pipe"), 
+                        "training_query": pipe_info.get("training_query")
+                    }
+                    pool.apply_async(
+                        lab_fit, 
+                        args=(data, pipe_core, testing),
+                        callback=self.task_handler,
+                        error_callback=self.error_handler
+                        )
                     logger.info(f"Geting fit to {pipe_name}")
             pool.close()
             pool.join()
 
+    @logger.catch
     def task_handler(self, result):
         """Handles the result of the pipeline fitting process.
 
@@ -208,14 +217,15 @@ class PipelineExecutor(PipelineManager):
         if result == "InsufficientDataError":
             logger.critical(f" Not enough data to train")
         elif result == "KeyError":
-            logger.critical(f" The pipe is malformed, keys are missing")
+            logger.critical(f"The pipe is malformed, keys are missing")
         else:
             training_file = pipe_save(result, self.save_in_joblib)
-            logger.info(f" End pipe fit. It is saved {training_file}")
+            logger.info(f"End pipe fit. It is saved {training_file}")
             if self.generate_so:
                 logger.info("Creating shared object")
                 self.launch_create_so(training_file)
 
+    @logger.catch
     def error_handler(self, result):
         """Handles errors that occur during the fitting process.
 
@@ -224,6 +234,7 @@ class PipelineExecutor(PipelineManager):
         """
         logger.error(f"Error in fit {result}")
 
+    @logger.catch
     def launch_create_so(self, model_path: str) -> None:
         """Launches the creation of a shared object.
 
@@ -233,8 +244,6 @@ class PipelineExecutor(PipelineManager):
         create_so(model_path=model_path)
         logger.info(f"Shared object created at {model_path}")
     
-
-        
 
 if __name__ == "__main__":
     pipe = PipelineExecutor("pipes_schedules/pipe_plan.json", generate_so=True, save_in_joblib=False)

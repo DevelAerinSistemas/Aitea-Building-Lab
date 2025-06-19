@@ -37,7 +37,7 @@ class PMVPPDAnalysis(MetaModel):
         self.thresholds = thresholds
         self.data_matrix = pd.DataFrame()
         self.bucket_data = pd.DataFrame()
-        self.result_dictionary = {} 
+        self.results_dictionary = {} 
     
     def fit(self, X, y=None):
         """Fit the model to the data.
@@ -82,7 +82,7 @@ class PMVPPDAnalysis(MetaModel):
             else:
                 entire_bucket_prediction = self._predict_entire_bucket(data_prepare_bucket)
                 floor_buckets_prediction = self._predict_floor_bucket(data_prepare_floors)
-            self.result_dictionary = {
+            self.results_dictionary = {
                 "building_pmvppd_analysis": entire_bucket_prediction,
                 "floor_pmvppd_analysis": floor_buckets_prediction
             }
@@ -90,7 +90,7 @@ class PMVPPDAnalysis(MetaModel):
             logger.error(f"An error occurred during prediction: {e}")
             entire_bucket_prediction = pd.DataFrame()
             floor_buckets_prediction = pd.DataFrame()
-            self.result_dictionary = {
+            self.results_dictionary = {
                 "building_pmvppd_analysis": entire_bucket_prediction,
                 "floor_pmvppd_analysis": floor_buckets_prediction
             }
@@ -112,7 +112,7 @@ class PMVPPDAnalysis(MetaModel):
         Returns:
             dict: A dictionary containing the predictions for entire buckets and floor buckets.
         """
-        return self.result_dictionary
+        return self.results_dictionary
     
     def get_prediction(self, X):
         pass
@@ -129,7 +129,7 @@ class PMVPPDAnalysis(MetaModel):
         return {
             "data_matrix": self.data_matrix,
             "bucket_data": self.bucket_data,
-            "result_dictionary": self.result_dictionary,
+            "results_dictionary": self.results_dictionary,
             "thresholds": self.thresholds
         }
         
