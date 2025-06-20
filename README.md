@@ -3,35 +3,35 @@
 ## Installation and initialization
 
 1. Make sure your machine has the following modules and software correctly installed:
-  1.1. Running Debian 12.0
-  1.2. Python 3.11, if not install it with the following commands:
-    ```bash
-    sudo apt update
-    sudo apt install zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget liblzma-dev
-    sudo apt install python3.11
-    ```
-  1.3. Available connection to InfluxDB
-  1.4. Nuitka library installed, version '2.7.8' on Python 3.11 (flavor 'Debian Python') commercial grade '3.8.4'
-  1.5. C Compiler, if not use: `sudo apt install build-essential`
-  1.6. Python development headers, if not use: `sudo apt install python3.11-dev`
-  1.7. C cache installed for quick development, if not use: `sudo apt install ccache`
+    1. Running Debian 12.0, check using command: `lsb_release -a`
+    2. Python 3.11, if not install it with the following commands:
+        ```bash
+        sudo apt update
+        sudo apt install zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget liblzma-dev
+        sudo apt install python3.11
+        ```
+    3. Available connection to InfluxDB
+    4. Nuitka library installed, version '2.7.8' on Python 3.11 (flavor 'Debian Python') commercial grade '3.8.4'
+    5. C Compiler, if not use: `sudo apt install build-essential`
+    6. Python development headers, if not use: `sudo apt install python3.11-dev`
+    7. C cache installed for quick development, if not use: `sudo apt install ccache`
 
 2. Python environment
-  2.1. Create a virtual python environment with `python3 -m venv {environment_path}` (substitute `{environment_path}` by your actual path)
-  2.2. Modify the **.env** file variable `PYTHON_ENV` with the path of the virtual python environment just created
-  2.3. Activate your python environment using `source {environment_path}/bin/activate`
-  2.3. Install python dependencies from **/config/requirements.txt** using `pip3 install -r /config/requirements.txt` (executed from project root path)
+    1. Create a virtual python environment with `python3 -m venv {environment_path}` (substitute `{environment_path}` by your actual path)
+    2. Modify the **.env** file variable `PYTHON_ENV` with the path of the virtual python environment just created
+    3. Activate your python environment using `source {environment_path}/bin/activate`
+    4. Install python dependencies from **/config/requirements.txt** using `pip3 install -r /config/requirements.txt` (executed from project root path)
 
 3. Setting up
-  3.1. The configuration file used by default is **config/global_config.json**. If needed something different, make your own version and modify the `CONFIG_PATH` variable in **.env** file.
-  3.2. Modify content for keys **influxdb** and **buckets_not_considered** in the configuration JSON to fit your InfluxDB connection and configuration. 
-  3.3. Keys **influx_queries** and **testing** contents must not be modified, since they include parameters for Flux queries automatic generation and general testing
-  3.4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
+    1. The configuration file used by default is **config/global_config.json**. If needed something different, make your own version and modify the `CONFIG_PATH` variable in **.env** file.
+    2. Modify content for keys **influxdb** and **buckets_not_considered** in the configuration JSON to fit your InfluxDB connection and configuration. 
+    3. Keys **influx_queries** and **testing** contents must not be modified, since they include parameters for Flux queries automatic generation and general testing
+    4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
 
 4. Testing everything works
-  4.1. Familiarize yourself with code from *DummyTransform* and *DummyModel* classes from **models_warehouse/dummy.py** 
-  4.2. Familiarize yourself with *dummy* pipeline from **pipes_schedules/pipe_plan.json**
-  4.3. Run the global test, which generates testing data in your InfluxDB database and uses it to generate your dummy model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_global`
-  4.4. Run the following command to test library generation and use GUI implementation: `streamlit run display/display.py`
+    1. Familiarize yourself with code from *DummyTransform* and *DummyModel* classes from **models_warehouse/dummy.py** 
+    2. Familiarize yourself with *dummy* pipeline from **pipes_schedules/pipe_plan.json**
+    3. Run the global test, which generates testing data in your InfluxDB database and uses it to generate your dummy model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_global`
+    4. Run the following command to test library generation and use GUI implementation: `streamlit run display/display.py`
 
 
