@@ -37,7 +37,7 @@ class DummyTransform(MetaTransform):
     def transform(self, X: Any) -> np.ndarray:
         pass
     
-    def fit_transform(self, X: Any) -> np.ndarray:
+    def fit_transform(self, X: Any, y: Any = None) -> np.ndarray:
         pass
 
     def get_info(self) -> str:

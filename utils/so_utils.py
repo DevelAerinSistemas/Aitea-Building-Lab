@@ -15,11 +15,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 import base64
 import subprocess
-import os
-from dotenv import load_dotenv
 from loguru import logger
-
-load_dotenv()
 
 @logger.catch
 def create_so(
@@ -32,47 +28,58 @@ def create_so(
         model_path (str): Path to the serialized model file (e.g., '.pkl').
         template_path (str, optional): Path to the template Python file for the executor. Defaults to "templates/so_template.py".
     """
+    from dotenv import load_dotenv
+    import os
+    load_dotenv()
+    python_env = os.getenv("PYTHON_ENV")
+
     with open(model_path, "rb") as f:
         pipe_data = f.read()
         pipe_data_base64 = base64.b64encode(pipe_data).decode("utf-8")
     with open(template_path, "r") as f:
         template_code = f.read()
     executor_code = template_code.replace("{pipe_data_base64}", pipe_data_base64)
+    name_so = model_path.split("/")[1].split(".")[0]
+    name_py = name_so + ".py"
     
-    logger.info(executor_code)
-    # name_so = model_path.split("/")[1].split(".")[0]
-    # name_py = name_so + ".py"
-    
-    # with open(name_py, "w") as f:
-    #     f.write(executor_code)
+    with open(name_py, "w") as f:
+        f.write(executor_code)
 
-    # command = [
-    #     f"{os.get_env('PYTHON_ENV')}/bin/nuitka",
-    #     "--module", name_py,
-    #     "--include-package=models_warehouse",
-    #     "--include-package=metaclass",
-    #     "--include-package=utils",
-    #     "--show-modules",
-    #     "--output-dir=lib",
-    #     "--remove-output"
-    # ]
-    # try:
-    #     result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    #     logger.info(f"Output: {result.stdout}")
-    #     if result.stderr:
-    #         logger.error(f"Error Output: {result.stderr}")
-    # except subprocess.CalledProcessError as err:
-    #     logger.error(f"Error Output: {err}")
-    # finally:
-    #     # Clean up the temporary file
-    #     import os
-    #     import glob
-    #     if os.path.exists(name_py):
-    #         os.remove(name_py)
-    #         files = glob.glob("lib/*.pyi")
-    #         for file in files:
-    #             os.remove(file)
-    #         logger.info("Temporary file removed.")
+    command = [
+        f"{python_env}/bin/nuitka",
+        "--module", name_py,
+        "--include-package=models_warehouse",
+        "--include-package=metaclass",
+        "--include-package=utils",
+        "--show-modules",
+        "--output-dir=lib",
+        "--remove-output"
+    ]
+    try:
+        logger.info(f"Running command: {' '.join(command)}")
+        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        logger.success("Command executed successfully")
+        if result.stdout:
+            logger.info(f"Standard Output: {result.stdout}")
+        if result.stderr:
+            logger.warning(f"Standard Error Informational/Verbose Output: {result.stderr}")
+    except subprocess.CalledProcessError as err:
+        logger.error(f"Command failed with exit code {err.returncode}")
+        logger.error(f"Command: {' '.join(err.cmd)}")
+        if err.stdout:
+            logger.error(f"Standard Output (from failed command):\n{err.stdout}")
+        if err.stderr:
+            logger.error(f"Standard Error (from failed command):\n{err.stderr}")
+    finally:
+        # Clean up the temporary file
+        import os
+        import glob
+        if os.path.exists(name_py):
+            os.remove(name_py)
+            files = glob.glob("lib/*.pyi")
+            for file in files:
+                os.remove(file)
+            logger.info("Temporary file removed.")
 
 
 if __name__ == "__main__":

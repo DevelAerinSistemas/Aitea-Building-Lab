@@ -162,35 +162,15 @@ def generate_testing_data(parameters:dict) -> None :
         logger.success(f"Generated {count} data points into {path}")
 
 @logger.catch
-def upload_testing_data(influxdb_conn: InfluxDBConnector, testing_conf: dict) -> None:
+def upload_testing_data(influxdb_conn: InfluxDBConnector, testing_conf: dict, testing_df: pd.DataFrame) -> None:
     """TBD"""
-    influxdb.bucket_creator(testing_conf.get("bucket"))
+    influxdb_conn.bucket_creator(testing_conf.get("bucket"))
     measurement_column = testing_conf.get("data").get("measurement_column")
     for val in testing_df[measurement_column].unique():
-        influxdb.insert_dataframe(
+        influxdb_conn.insert_dataframe(
             bucket = testing_conf.get("bucket"),
             dataframe = testing_df[testing_df[measurement_column]==val].reset_index(drop=True).drop(columns=[measurement_column]), 
             tags = list(testing_conf.get("data").get("tags").keys()),
             measurement = val,
             timestamp = testing_conf.get("data").get("timestamp_column")
-        )
-
-if __name__ == "__main__":
-    
-    logger = get_logger()
-    testing_conf = get_configuration().get("testing")
-    
-    # Creating testing data
-    path = testing_conf.get("data").get("path")
-    generate_testing_data(testing_conf.get("data"))
-    testing_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
-    logger.info(f"Testing data:\n{testing_df.head()}")
-
-    # Uploading testing data
-    influxdb = InfluxDBConnector()
-    upload_testing_data(influxdb, testing_conf)
-    
-    # Retrieving testing data
-    data = influxdb.request_query(query_dict=testing_conf.get("query"), pandas=True)
-    logger.info(f"\n{data.head()}")
-    influxdb.close()
+        )  

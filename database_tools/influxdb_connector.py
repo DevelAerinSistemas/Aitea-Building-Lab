@@ -78,7 +78,7 @@ class InfluxDBConnector(object):
             logger.error("Influxdb parameters for configuration are not defined in global config file. Check it again!")
 
     @logger.catch()
-    def connect(self):
+    def connect(self) -> tuple[bool, InfluxDBClient]:
         """Method that creates the InfluxDB connection
         """
         flag_connection = False

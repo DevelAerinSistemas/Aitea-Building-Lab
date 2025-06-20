@@ -9,6 +9,7 @@
         "bucket_not_considered_1", 
         "bucket_not_considered_2"
     ],
+    "pipe_plan_path": "pipes_schedules/pipe_plan.json",
     "influx_queries": {
         "general_query": "from(bucket: \"{bucket}\") |> range(start: {start}, stop: {stop})",
         "pivot": "|> pivot(rowKey: {row_key}, columnKey: {column_key}, valueColumn: \"{value}\")",
@@ -37,6 +38,7 @@
         "difference": "|> difference(nonNegative: {non_negative})"
     },
     "testing": {
+        "pipe_plan_path": "pipes_schedules/pipe_plan_test.json",
         "bucket": "testing",
         "data": {
             "path": "testing_tools/testing_data.csv",
