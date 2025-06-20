@@ -153,19 +153,3 @@ class SOLibraryLoader:
            logger.info(f"Library info: {ExecutorClass.__doc__}")
            logger.info(f"Library info: {executor_class_instance.get_info()}")
            return executor_class_instance
-    
-
-if __name__ == '__main__':
-    for a in range(2):
-    # Example usage:
-        try:
-            loader = SOLibraryLoader("pmvppd_analysis") 
-        except FileNotFoundError as e:
-            logger.error(e)
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
-        else:
-            loader.check_query()
-            start_time = datetime.datetime(2025, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
-            stop_time = datetime.datetime(2025, 1, 2, 23, 59, 59, tzinfo=pytz.UTC)
-            loader.testing(stop_data=start_time, start_data=stop_time)

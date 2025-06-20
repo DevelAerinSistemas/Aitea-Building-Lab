@@ -9,11 +9,9 @@
             }
         },
         "training_query": {
-            "bucket": {
-                "bucket": [
-                    "testing"
-                ]
-            }, 
+            "buckets": [
+                "testing"
+            ],
             "range": {
                 "start": "2025-06-01T00:00:00.000Z", 
                 "stop": "2025-06-04T00:00:00.000Z"

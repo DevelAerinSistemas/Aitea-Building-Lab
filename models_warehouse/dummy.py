@@ -65,6 +65,9 @@ class DummyTransform(MetaTransform):
             else:
                 logger.warning(f"Attribute '{name}' not found in {self.__class__.__name__}.")
 
+    @logger.catch()
+    def generate_query_params(self):
+        pass
 
 class DummyModel(MetaModel):
 
@@ -116,6 +119,10 @@ class DummyModel(MetaModel):
                 setattr(self, name, value)
             else:
                 logger.warning(f"Attribute '{name}' not found in {self.__class__.__name__}.")
+    
+    @logger.catch()
+    def generate_query_params(self):
+        pass
 
 if __name__ == "__main__":
 

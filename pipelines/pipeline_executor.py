@@ -20,7 +20,6 @@ import subprocess
 from dotenv import load_dotenv
 import os
 
-
 from database_tools.influxdb_connector import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
 from utils.file_utils import load_json_file, get_configuration
@@ -46,18 +45,29 @@ class PipelineManager(object):
         self.pipes = {}
 
     @logger.catch
-    def create_pipelines(self, influxdb_conn: InfluxDBConnector, bucket_not_considered: set):
+    def create_pipelines(self, influxdb_conn: InfluxDBConnector, buckets_not_considered: set):
         """Create all pipes
         """
         if self.configuration:
             for pipe_name, pipe_values in self.configuration.items():
                 pipe = self.create_one_pipeline(pipe_values)
                 query = pipe_values.get("training_query")
-                bucket = query.get("bucket", {}).get("bucket")
-                final_buckets = self.get_valid_buckets(bucket, influxdb_conn, bucket_not_considered)
+                buckets = query.get("buckets")
+                final_buckets = self.get_valid_buckets(
+                    buckets, 
+                    influxdb_conn, 
+                    buckets_not_considered
+                )
+                query["buckets"] = final_buckets
                 freq_info = pipe_values.get("freq_info")
-                query["bucket"]["bucket"] = final_buckets
-                self.pipes[pipe_name] = {"pipe":  pipe, "training_query": query, "freq_info": freq_info}
+
+                self.pipes[pipe_name] = {
+                    "pipe":  pipe, 
+                    "training_query": query, 
+                    "freq_info": freq_info,
+                }
+                if "query_parts" in query:
+                    self.pipes[pipe_name]["query_params"] = pipe.steps[0].generate_query_params()
 
     @logger.catch
     def create_one_pipeline(self, pipeline_details: dict) -> Pipeline:
@@ -80,7 +90,7 @@ class PipelineManager(object):
         return Pipeline(pipe_parts)
     
     @logger.catch
-    def get_valid_buckets(self, actual_buckets: list, influxdb_conn: InfluxDBConnector, bucket_not_considered: set) -> list:
+    def get_valid_buckets(self, actual_buckets: list, influxdb_conn: InfluxDBConnector, buckets_not_considered: set) -> list:
        """Get all buckets from the configuration.
        Args:
            actual_buckets (list): List of actual buckets.
@@ -90,7 +100,7 @@ class PipelineManager(object):
        """
        all_buckets = []
        if "all_buckets" in actual_buckets or "all" in actual_buckets:
-           all_buckets = set(influxdb_conn.get_bucket_list()) - bucket_not_considered   
+           all_buckets = set(influxdb_conn.get_bucket_list()) - buckets_not_considered   
            all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
        else:   
            all_buckets = actual_buckets
@@ -141,8 +151,8 @@ class PipelineExecutor(PipelineManager):
         self.save_in_joblib = save_in_joblib
         config = get_configuration()
         influxdb_conn = InfluxDBConnector()
-        bucket_not_considered = set(config.get("bucket_not_considered", []))
-        self.create_pipelines(influxdb_conn, bucket_not_considered)
+        buckets_not_considered = set(config.get("buckets_not_considered", []))
+        self.create_pipelines(influxdb_conn, buckets_not_considered)
         for name, pipes_data in self.pipes.items():
             pipes_data["connection"] = influxdb_conn
         
@@ -156,18 +166,30 @@ class PipelineExecutor(PipelineManager):
         Returns:
             pd.DataFrame: Data to fit the pipe
         """
-        query_buckets = copy.deepcopy(pipe_data.get("training_query"))
-        buckets = query_buckets.get("bucket", {}).get("bucket")
+        training_query = copy.deepcopy(pipe_data.get("training_query"))
+        buckets = training_query.get("buckets")
         influxdb_conn = pipe_data.get("connection")
+        query_params = pipe_data.get("query_params")
         dataframe_list = list()
         total_dataframe = None
         if isinstance(buckets, list):
             for bucket in buckets:
-                query_buckets["bucket"]["bucket"] = bucket
-                logger.info(f" Start query in  {bucket}")
-                query = influxdb_conn.compose_influx_query_from_dict(query_buckets)
+                logger.info(f"Starting query generation for bucket '{bucket}'")
+                query_dict = {"bucket":{"bucket":bucket}}
+                for k,v in training_query.items():
+                    if k!="buckets":
+                        query_dict[k] = v
+                query = influxdb_conn.compose_influx_query_from_dict(query_dict)
+                query_parts = training_query.get("query_parts",[])
+                if query_parts:
+                    query_parts.prepend(query)
+                    query = "\n  |>".join(query_parts).format(**query_params)
+                logger.info(f"Retrieving data from InfluxDB using query:\n{query}")
                 stream_data = influxdb_conn.query(
-                    query=query, pandas=True, stream=False)
+                    query=query, 
+                    pandas=True, 
+                    stream=False
+                )
                 if stream_data is None:
                     continue
                 logger.info(f" End query in {bucket}")
@@ -186,7 +208,7 @@ class PipelineExecutor(PipelineManager):
         """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipes.items():
-                logger.info(f"Acquiring influx data to perform task to {pipe_name}")
+                logger.info(f"Acquiring influx data to perform task '{pipe_name}'")
                 data = self.data_preparation(pipe_info)
                 if data is None:
                     logger.warning("Empty data, can't do training")

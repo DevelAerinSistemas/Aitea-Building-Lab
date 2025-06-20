@@ -5,7 +5,7 @@
         "host": "localhost",
         "port": "8086"
     },
-    "bucket_not_considered": [
+    "buckets_not_considered": [
         "bucket_not_considered_1", 
         "bucket_not_considered_2"
     ],

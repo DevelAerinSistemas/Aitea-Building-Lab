@@ -1,29 +1,25 @@
 {
-    "dummy": {
+    "temperature_reach": {
         "steps": {
-            "dummy.DummyTransform": {
-                "example_parameter": 1.0
-            },
-            "dummy.DummyModel": {
-                "example_parameter": 2.0
+            "temperature_reach_analysis.TemperatureReachTransform": {
+                "event_name": "temperature_reach_analytic",
+                "windows_size_hours": 6,
+                "start_time_hour": 7,
+                "start_time_minute": 30,
+                "zone_info": "Europe/Madrid"
             }
         },
         "training_query": {
-            "bucket": {
-                "bucket": [
-                    "testing"
-                ]
-            }, 
-            "range": {
-                "start": "2025-06-01T00:00:00.000Z", 
-                "stop": "2025-06-04T00:00:00.000Z"
-            },
-            "filter_measurement": {
-                "measurement": "measurement_1"
-            }, 
-            "filter_field": [
-                {"field": "field_12"}, 
-                {"field": "field_13"} 
+            "buckets": [
+                "recoletos_37"
+            ],
+            "query_parts": [
+                "range(start: {{ time_start }}, stop: {{ time_now }})",
+                "filter(fn: (r) => r[\"element\"] == \"vrv\")",
+                "filter(fn: (r) => r[\"_field\"] == \"room_temperature\" or r[\"_field\"] == \"setpoint_temperature\")",
+                "filter(fn: (r) => r[\"workspace_type\"] == \"open_plan_space\")",
+                "filter(fn: (r) => r[\"_value\"] >= 10 and r[\"_value\"] <= 40)",
+                "aggregateWindow(every: 15m, fn: mean, createEmpty: false)"
             ]
         }
     }

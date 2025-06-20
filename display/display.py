@@ -31,7 +31,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from testing_tools.testing_so import SOLibraryLoader  
+from library_loader.so_library_loader import SOLibraryLoader  
 lib_dir = "lib"
 available_libraries = [f.split(".")[0] for f in os.listdir(lib_dir) if f.endswith(".so")]
 
