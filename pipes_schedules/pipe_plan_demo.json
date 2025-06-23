@@ -1,16 +1,16 @@
 {
-    "dummy": {
+    "demo": {
         "steps": {
-            "dummy.DummyTransform": {
+            "demo.DemoTransform": {
                 "example_parameter": 1.0
             },
-            "dummy.DummyModel": {
+            "demo.DemoModel": {
                 "example_parameter": 2.0
             }
         },
         "training_query": {
             "buckets": [
-                "testing"
+                "demo"
             ],
             "range": {
                 "start": "2025-06-01T00:00:00.000Z", 

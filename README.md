@@ -29,9 +29,9 @@
     4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
 
 4. Testing everything works with prepared test
-    1. Familiarize yourself with code from *DummyTransform* and *DummyModel* classes from **models_warehouse/dummy.py** 
-    2. Familiarize yourself with *dummy* pipeline from **pipes_schedules/pipe_plan_test.json**
-    3. Run the global test, which generates testing data in your InfluxDB database and uses it to generate your dummy model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_global`
+    1. Familiarize yourself with code from *DemoTransform* and *DemoModel* classes from **models_warehouse/demo.py** 
+    2. Familiarize yourself with *demo* pipeline from **pipes_schedules/pipe_plan_demo.json**
+    3. Run the global test, which generates testing data in your InfluxDB database and uses it to generate your dummy model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_demo`
     4. Run the following command to test library generation and use GUI implementation: `streamlit run display/display.py`
 
 5. Using the application

@@ -37,11 +37,11 @@
         "fill": "|> fill(column: \"{columns}\", usePrevious: {previous})",
         "difference": "|> difference(nonNegative: {non_negative})"
     },
-    "testing": {
-        "pipe_plan_path": "pipes_schedules/pipe_plan_test.json",
-        "bucket": "testing",
+    "demo": {
+        "pipe_plan_path": "pipes_schedules/pipe_plan_demo.json",
+        "bucket": "demo",
         "data": {
-            "path": "testing_tools/testing_data.csv",
+            "path": "testing_tools/demo_data.csv",
             "measurement_column": "_measurement",
             "timestamp_column": "_time",
             "start_time": "2025-06-01T00:00:00Z",

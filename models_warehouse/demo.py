@@ -17,7 +17,7 @@ import datetime
 
 LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
 
-class DummyTransform(MetaTransform):
+class DemoTransform(MetaTransform):
 
     def __init__(self, **parameters):
         """Example
@@ -69,7 +69,7 @@ class DummyTransform(MetaTransform):
     def generate_query_params(self):
         pass
 
-class DummyModel(MetaModel):
+class DemoModel(MetaModel):
 
     def __init__(self, **parameters):
         """Example

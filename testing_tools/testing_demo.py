@@ -15,7 +15,7 @@ from utils.file_utils import get_configuration
 from utils.logger_config import get_logger
 
 from database_tools.influxdb_connector import InfluxDBConnector
-from testing_tools.testing_influxdb import generate_testing_data, upload_testing_data
+from testing_tools.testing_influxdb import generate_demo_data, upload_demo_data
 from pipelines.pipeline_executor import PipelineExecutor
 
 import pandas as pd
@@ -30,26 +30,26 @@ if __name__ == "__main__":
         # Configuration
         load_dotenv()
         config_json = get_configuration()
-        testing_conf = get_configuration().get("testing")
-        pipe_plan_path = testing_conf.get("pipe_plan_path")
+        demo_conf = get_configuration().get("demo")
+        pipe_plan_path = demo_conf.get("pipe_plan_path")
         logger.success(f"Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
         
-        # Creating testing data
-        path = testing_conf.get("data").get("path")
-        generate_testing_data(testing_conf.get("data"))
-        testing_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
-        logger.success(f"Testing data correctly generated. Sneak peek:\n{testing_df.head()}")
+        # Creating demo data
+        path = demo_conf.get("data").get("path")
+        generate_demo_data(demo_conf.get("data"))
+        demo_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
+        logger.success(f"Demo data correctly generated. Sneak peek:\n{demo_df.head()}")
 
-        # Uploading testing data
+        # Uploading demo data
         influxdb = InfluxDBConnector()
-        upload_testing_data(influxdb, testing_conf, testing_df)
+        upload_demo_data(influxdb, demo_conf, demo_df)
         
-        # Retrieving testing data
-        data = influxdb.request_query(query_dict=testing_conf.get("query"), pandas=True)
+        # Retrieving demo data
+        data = influxdb.request_query(query_dict=demo_conf.get("query"), pandas=True)
         influxdb.close()
-        logger.info(f"Testing data correctly retrieved from database. Sneak peek:\n{data.head()}")
+        logger.info(f"Demo data correctly retrieved from database. Sneak peek:\n{data.head()}")
 
-        # Testing pipelines generating model .pkl and library .so
+        # Demo pipelines generating model .pkl and library .so
         pipe = PipelineExecutor(pipe_plan_path, generate_so=True, save_in_joblib=False)
         pipe.pipes_executor(testing=False)
         logger.success("Pipeline execution was successful")

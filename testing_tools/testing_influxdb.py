@@ -20,7 +20,7 @@ import random
 logger = get_logger()
 
 @logger.catch
-def generate_testing_data(parameters:dict) -> None :
+def generate_demo_data(parameters:dict) -> None :
     """
     Generates a CSV file for InfluxDB batch import.
 
@@ -162,7 +162,7 @@ def generate_testing_data(parameters:dict) -> None :
         logger.success(f"Generated {count} data points into {path}")
 
 @logger.catch
-def upload_testing_data(influxdb_conn: InfluxDBConnector, testing_conf: dict, testing_df: pd.DataFrame) -> None:
+def upload_demo_data(influxdb_conn: InfluxDBConnector, testing_conf: dict, testing_df: pd.DataFrame) -> None:
     """TBD"""
     influxdb_conn.bucket_creator(testing_conf.get("bucket"))
     measurement_column = testing_conf.get("data").get("measurement_column")
