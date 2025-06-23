@@ -14,7 +14,7 @@
                 "recoletos_37"
             ],
             "query_parts": [
-                "range(start: {{ time_start }}, stop: {{ time_now }})",
+                "range(start: {time_start}, stop: {time_now})",
                 "filter(fn: (r) => r[\"element\"] == \"vrv\")",
                 "filter(fn: (r) => r[\"_field\"] == \"room_temperature\" or r[\"_field\"] == \"setpoint_temperature\")",
                 "filter(fn: (r) => r[\"workspace_type\"] == \"open_plan_space\")",

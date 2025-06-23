@@ -28,10 +28,16 @@
     3. Keys **influx_queries** and **testing** contents must not be modified, since they include parameters for Flux queries automatic generation and general testing
     4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
 
-4. Testing everything works
+4. Testing everything works with prepared test
     1. Familiarize yourself with code from *DummyTransform* and *DummyModel* classes from **models_warehouse/dummy.py** 
-    2. Familiarize yourself with *dummy* pipeline from **pipes_schedules/pipe_plan.json**
+    2. Familiarize yourself with *dummy* pipeline from **pipes_schedules/pipe_plan_test.json**
     3. Run the global test, which generates testing data in your InfluxDB database and uses it to generate your dummy model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_global`
+    4. Run the following command to test library generation and use GUI implementation: `streamlit run display/display.py`
+
+5. Using the application
+    1. Create your own transformations and models, storing them at **/models_warehouse**. 
+    2. Include a new pipeline with your transformations and models and the required data they need to run into file **pipes_schedules/pipe_plan.json**
+    3. Run the application test to generate your model *.pkl* and library *.so* (both stored at **lib/**) using `python3 -m testing_tools.testing_app`
     4. Run the following command to test library generation and use GUI implementation: `streamlit run display/display.py`
 
 

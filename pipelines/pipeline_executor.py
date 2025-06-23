@@ -67,7 +67,7 @@ class PipelineManager(object):
                     "freq_info": freq_info,
                 }
                 if "query_parts" in query:
-                    self.pipes[pipe_name]["query_params"] = pipe.steps[0].generate_query_params()
+                    self.pipes[pipe_name]["query_params"] = pipe.steps[0][1].generate_query_params()
 
     @logger.catch
     def create_one_pipeline(self, pipeline_details: dict) -> Pipeline:
@@ -182,7 +182,9 @@ class PipelineExecutor(PipelineManager):
                 query = influxdb_conn.compose_influx_query_from_dict(query_dict)
                 query_parts = training_query.get("query_parts",[])
                 if query_parts:
-                    query_parts.prepend(query)
+                    query_parts.insert(0,query.split("\n")[1])
+                    logger.info(f"Query parts available: {query_parts}")
+                    logger.info(f"Using query_params: {query_params}")
                     query = "\n  |>".join(query_parts).format(**query_params)
                 logger.info(f"Retrieving data from InfluxDB using query:\n{query}")
                 stream_data = influxdb_conn.query(

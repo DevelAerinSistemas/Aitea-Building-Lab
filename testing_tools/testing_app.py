@@ -4,7 +4,7 @@
  # @ Modified by: Héctor Bermúdez Castro
  # @ Modified time: 2025-06-20
  # @ Project: Aitea Building Lab
- # @ Description: Testing app with testing configuration
+ # @ Description: Testing app
  # @ Copyright (c) 2024: Departamento de I+D. Aitea Tech
  '''
 
@@ -30,24 +30,9 @@ if __name__ == "__main__":
         # Configuration
         load_dotenv()
         config_json = get_configuration()
-        testing_conf = get_configuration().get("testing")
-        pipe_plan_path = testing_conf.get("pipe_plan_path")
         logger.success(f"Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
-        
-        # Creating testing data
-        path = testing_conf.get("data").get("path")
-        generate_testing_data(testing_conf.get("data"))
-        testing_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
-        logger.success(f"Testing data correctly generated. Sneak peek:\n{testing_df.head()}")
-
-        # Uploading testing data
-        influxdb = InfluxDBConnector()
-        upload_testing_data(influxdb, testing_conf, testing_df)
-        
-        # Retrieving testing data
-        data = influxdb.request_query(query_dict=testing_conf.get("query"), pandas=True)
-        influxdb.close()
-        logger.info(f"Testing data correctly retrieved from database. Sneak peek:\n{data.head()}")
+        pipe_plan_path = config_json.get("pipe_plan_path")
+        logger.info(f"Using pipe schedule from '{pipe_plan_path}'")
 
         # Testing pipelines generating model .pkl and library .so
         pipe = PipelineExecutor(pipe_plan_path, generate_so=True, save_in_joblib=False)
