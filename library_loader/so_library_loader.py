@@ -20,15 +20,11 @@ from utils.file_utils import load_json_file
 
 
 import importlib
-import os
 from loguru import logger
 import datetime
 import pytz
 import json
 import pandas as pd
-from dotenv import load_dotenv
-
-load_dotenv()
 
 class SOLibraryLoader:
     def __init__(self, name: str):
@@ -38,10 +34,8 @@ class SOLibraryLoader:
         Args:
             name (str): The name of the .so library (without the .so extension).
         """
-        data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
-        self.influx = InfluxDBConnector(data_conection)
-        self.influx.load_configuration()
-        _, _ = self.influx.connect(True)
+        self.influxdb_conn = InfluxDBConnector()
+        influxdb_conn_status, influxdb_conn_client = self.influxdb_conn.connect()
         self.name = name
         self.exec = None
         self.exec = self._load_library()
@@ -58,8 +52,8 @@ class SOLibraryLoader:
             composed_query_list = self._compose_query(query, stop_data, start_data)
             for one_query in composed_query_list:
                 one_query_copy = one_query.copy()
-                query = self.influx.compose_influx_query_from_dict(one_query_copy)
-                data = self.influx.query(query=query, pandas=True, stream=False)
+                query = self.influxdb_conn.compose_influx_query_from_dict(one_query_copy)
+                data = self.influxdb_conn.query(query=query, pandas=True, stream=False)
                 logger.info(f"Model Info: {self.exec.get_info()}")
                 if data is not None and not data.empty:
                     bucket = one_query.get("bucket", {}).get("bucket", "default_bucket")
@@ -159,19 +153,3 @@ class SOLibraryLoader:
            logger.info(f"Library info: {ExecutorClass.__doc__}")
            logger.info(f"Library info: {executor_class_instance.get_info()}")
            return executor_class_instance
-    
-
-if __name__ == '__main__':
-    for a in range(2):
-    # Example usage:
-        try:
-            loader = SOLibraryLoader("pmvppd_analysis") 
-        except FileNotFoundError as e:
-            logger.error(e)
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
-        else:
-            loader.check_query()
-            start_time = datetime.datetime(2025, 1, 1, 0, 0, 0, tzinfo=pytz.UTC)
-            stop_time = datetime.datetime(2025, 1, 2, 23, 59, 59, tzinfo=pytz.UTC)
-            loader.testing(stop_data=start_time, start_data=stop_time)

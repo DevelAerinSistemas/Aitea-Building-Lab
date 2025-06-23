@@ -14,12 +14,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
 '''
 
-
-from testing_tools.testing_so import SOLibraryLoader  # Corrected import path
-
-
-
 import os
+import sys
 import datetime
 import streamlit as st
 import plotly.graph_objects as go
@@ -27,14 +23,21 @@ from loguru import logger
 import random
 import time
 
+# Geting the absolute path of the directory containing display.py (i.e., display/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Getting the absolute path of the project root (one level up from display/)
+project_root = os.path.dirname(current_dir)
+# Add the project root to sys.path
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from library_loader.so_library_loader import SOLibraryLoader  
 lib_dir = "lib"
 available_libraries = [f.split(".")[0] for f in os.listdir(lib_dir) if f.endswith(".so")]
 
 # Streamlit app
 def main():
     st.title("SO Library Testing Interface")
-
-    
     library_name = st.selectbox(
         "Select a library:",
         available_libraries,
@@ -148,5 +151,6 @@ def create_graph(data_dictionary):
                 st.plotly_chart(fig)
             else:
                 logger.warning(f"Unexpected prediction format for bucket {bucket}: {type(matrix)}")
+
 if __name__ == "__main__":
     main()

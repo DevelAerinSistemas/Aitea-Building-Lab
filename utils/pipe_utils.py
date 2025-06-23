@@ -78,7 +78,7 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
         - date: The date and time of fitting
     """
     timi_i = time.time()
-    logger.info(f"Starting pipe fitting for {pipe_core}")
+    logger.info(f"Starting pipe fitting for pipe_core:\n{pipe_core}")
     try:
         pipe = pipe_core["pipe"]
         query = pipe_core["training_query"]
@@ -96,7 +96,12 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
             return "InsufficientDataError"
     except Exception as err:
         return "KeyError"
-    training_pipe = {"pipe_name": name, "pipe": pipe, "training_query": query,  "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    training_pipe = {
+        "pipe_name": name, 
+        "pipe": pipe, 
+        "training_query": query,  
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
     logger.info(f"End pipe fitting for {pipe_core} in {time.time() - timi_i}")
     return training_pipe
 
@@ -110,12 +115,12 @@ def pipe_save(pipe_data:dict, save_in_joblib: bool = False):
         str: Path to the saved pipe    
     """
     if save_in_joblib:
-        path = "training_models/" + pipe_data.get("pipe_name") + ".joblib"
+        path = "lib/" + pipe_data.get("pipe_name") + ".joblib"
         joblib.dump(pipe_data, path)
     else:
         dill.settings['recurse'] = True
         name = pipe_data.get("pipe_name")
-        path = "training_models/" + name + ".pkl"
+        path = "lib/" + name + ".pkl"
         with open(path, "wb") as f:
             dill.dump(pipe_data, f)
     return path

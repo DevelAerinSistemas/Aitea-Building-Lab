@@ -1,20 +1,26 @@
 {
-    "dataquality_mutua": {
+    "temperature_reach": {
         "steps": {
-            "data_quality_analysis.DataQualityAnalysis": {
-                "sensitivity threshold": 0.1
+            "temperature_reach_analysis.TemperatureReachTransform": {
+                "event_name": "temperature_reach_analytic",
+                "windows_size_hours": 6,
+                "start_time_hour": 7,
+                "start_time_minute": 30,
+                "zone_info": "Europe/Madrid"
             }
         },
         "training_query": {
-            "bucket": {
-                "bucket": [
-                    "all"
-                ]
-            },
-            "range": {
-                "start": "2025-06-09T00:00:00.211Z", 
-                "stop": "2025-06-10T00:00:00.211Z"
-            }
+            "buckets": [
+                "recoletos_37"
+            ],
+            "query_parts": [
+                "range(start: {time_start}, stop: {time_now})",
+                "filter(fn: (r) => r[\"element\"] == \"vrv\")",
+                "filter(fn: (r) => r[\"_field\"] == \"room_temperature\" or r[\"_field\"] == \"setpoint_temperature\")",
+                "filter(fn: (r) => r[\"workspace_type\"] == \"open_plan_space\")",
+                "filter(fn: (r) => r[\"_value\"] >= 10 and r[\"_value\"] <= 40)",
+                "aggregateWindow(every: 15m, fn: mean, createEmpty: false)"
+            ]
         }
     }
 }
