@@ -23,7 +23,6 @@ from tdigest import TDigest
 from metaclass.templates import MetaModel
 import datetime
 
-LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
 
 
 class DataQualityAnalysis(MetaModel):
@@ -38,9 +37,11 @@ class DataQualityAnalysis(MetaModel):
         super().__init__()
         self.freq_matrix = pd.DataFrame()
         self.ranges_matrix = pd.DataFrame()
-        self.results_dictionary = {}
+        self.result_dictionary = {}
         self.tdigest_dict = {}
         self.range_sensitivity = parameters.get("sensitivity_threshold", 0.1)
+        self.LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+        self.LIBRARY_FIT_DATE = self.LIBRARY_VERSION
 
     def fit(self, X: pd.DataFrame, y: pd.Series = None):
         """
@@ -84,7 +85,7 @@ class DataQualityAnalysis(MetaModel):
         prediction_results = pd.DataFrame()
         predict_freqmatrix = self._predict_freq(X.copy())
         predict_ranges = self._predict_ranges(X.copy())
-        self.results_dictionary = {
+        self.result_dictionary = {
             "frequency_analysis": predict_freqmatrix,
             "range_analysis": predict_ranges}
         
@@ -113,6 +114,7 @@ class DataQualityAnalysis(MetaModel):
             pd.DataFrame: The DataFrame containing the results of the prediction.
         """
         self._calculate_tdigets(X.copy())
+        self.LIBRARY_FIT_DATE = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
         return self.predict(X)
     
     @logger.catch()
@@ -126,8 +128,10 @@ class DataQualityAnalysis(MetaModel):
         Returns:
             str: A string containing information about the model.
         """
-        info = f"{self.__class__.__name__} - Version: {LIBRARY_VERSION}\nDescription: This model establishes data quality.\n"
+        info = f"{self.__class__.__name__} - Version: {self.LIBRARY_VERSION}\nDescription: This model establishes data quality.\n"
         info += "It calculates the frequency of each value grouped by 'nae', computes TDigest for temperature, humidity, and CO2, and determines outlier ranges based on the TDigest data."
+        info += f"\nFit Date: {self.LIBRARY_FIT_DATE}\n"
+        info += f"Range Sensitivity: {self.range_sensitivity}\n"
         return info
 
     def get_results(self) -> dict:
@@ -136,7 +140,7 @@ class DataQualityAnalysis(MetaModel):
         Returns:
             dict: A dictionary containing the results of the analysis.
         """
-        return self.results_dictionary
+        return self.result_dictionary
 
     def get_all_attributes(self):
         """Returns all attributes of the model.
@@ -147,12 +151,10 @@ class DataQualityAnalysis(MetaModel):
         return {
             "ranges_matrix": self.ranges_matrix,
             "freq_matrix": self.freq_matrix,
-            "results_dictionary": self.results_dictionary,
+            "result_dictionary": self.result_dictionary,
             "tdigest_dict": self.tdigest_dict
         }
-    
-    
-    @logger.catch()    
+        
     def update_parameters(self, **attributes):
         """
         Update the model's attributes with the given values.
@@ -160,11 +162,8 @@ class DataQualityAnalysis(MetaModel):
         Args:
             **attributes: A dictionary of attributes to update.
         """
-        for name, value in attributes.items():
-            if hasattr(self, name):
-                setattr(self, name, value)
-            else:
-                logger.warning(f"Attribute '{name}' not found in {self.__class__.__name__}.")
+        self.update(**attributes)
+    
 
     @logger.catch()
     def _predict_freq(self, X: pd.DataFrame) -> pd.DataFrame:
