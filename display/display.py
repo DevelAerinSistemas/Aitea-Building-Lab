@@ -33,11 +33,22 @@ if project_root not in sys.path:
 
 from library_loader.so_library_loader import SOLibraryLoader  
 lib_dir = "lib"
-available_libraries = [f.split(".")[0] for f in os.listdir(lib_dir) if f.endswith(".so")]
 
+available_libraries = [f.split(".")[0] for f in os.listdir(lib_dir) if f.endswith(".so")]
+available_libraries = [None] + available_libraries
 # Streamlit app
 def main():
     st.title("SO Library Testing Interface")
+    
+    # Inicializar variables en session_state
+    if "library_selected" not in st.session_state:
+        st.session_state.library_selected = False
+    if "start_date" not in st.session_state:
+        st.session_state.start_date = datetime.date(2025, 5, 1)
+    if "stop_date" not in st.session_state:
+        st.session_state.stop_date = datetime.date(2025, 5, 1)
+
+    # Selección de librería
     library_name = st.selectbox(
         "Select a library:",
         available_libraries,
@@ -45,39 +56,49 @@ def main():
         placeholder="Select a library..."
     )
 
-    if library_name:
-        st.write(f"You selected: {library_name}")
-        loader = SOLibraryLoader(library_name)
-        info = loader.exec.get_info() if loader.exec else None
-        if info:
-            st.markdown("### Library Information:")
-            for key, value in info.items():
-                st.markdown(f"**{key}:**")
-                st.markdown(f"<pre>{value}</pre>", unsafe_allow_html=True)
-        else:
-            st.warning("No information available for the selected library.")
-   
+    # Ejecutar solo si se selecciona una librería por primera vez
+    if library_name and not st.session_state.library_selected:
+        try:
+            st.write(f"You selected: {library_name}")
+            loader = SOLibraryLoader(library_name)
+            info = loader.exec.get_info() if loader.exec else None
+            if info:
+                st.markdown("### Library Information:")
+                for key, value in info.items():
+                    st.markdown(f"**{key}:**")
+                    st.markdown(f"<pre>{value}</pre>", unsafe_allow_html=True)
+            else:
+                st.warning("No information available for the selected library.")
+            st.session_state.library_selected = True  # Marcar como ejecutado
+        except Exception as e:
+            logger.error(f"Error loading library info: {e}")
+            st.error(f"Error loading library info: {e}")
+
+    # Selección de fechas
     col1, col2 = st.columns(2)
     with col1:
-        start_date = st.date_input("Start Date", datetime.date(2025, 1, 1))
+        start_date = st.date_input("Start Date", st.session_state.start_date)
         start_time = st.time_input("Start Time", datetime.time(0, 0))
     with col2:
-        stop_date = st.date_input("Stop Date", datetime.date(2025, 1, 7))
+        stop_date = st.date_input("Stop Date", st.session_state.stop_date)
         stop_time = st.time_input("Stop Time", datetime.time(23, 59))
-    
+
+    # Actualizar fechas en session_state
+    st.session_state.start_date = start_date
+    st.session_state.stop_date = stop_date
+
+    # Selección de visualización
     table_or_graph = st.radio("Display Results As:", ("Table", "Graph"), index=1)
 
-    
+    # Botón para ejecutar pruebas
     if st.button("Execute Testing"):
         if library_name and start_date and stop_date:
             try:
-                
                 loader = SOLibraryLoader(library_name)
                 
                 start_datetime = datetime.datetime.combine(start_date, start_time)
                 stop_datetime = datetime.datetime.combine(stop_date, stop_time) 
 
-                
                 start_date_str = start_datetime.isoformat(timespec='milliseconds') + 'Z'
                 stop_date_str = stop_datetime.isoformat(timespec='milliseconds') + 'Z'
                 logger.info(f"Start date: {start_date_str}, Stop date: {stop_date_str}")
@@ -103,11 +124,8 @@ def main():
                         else:
                             logger.warning(f"Unexpected prediction format for bucket {bucket}: {type(prediction)}")
 
-
                     fig = go.Figure(data=data)
                     fig.update_layout(title="Testing Results", xaxis_title="Time", yaxis_title="Value")
-
-
                     st.plotly_chart(fig)
 
             except Exception as e:
@@ -128,7 +146,9 @@ def create_table(data_dictionary):
             if hasattr(matrix, 'columns'):
                 st.dataframe(matrix)
                 st.markdown(f"### {bucket} - {name}. NaN table")
-                st.dataframe(matrix[matrix.isna().any(axis=1)])
+                numeric_matrix = matrix.select_dtypes(include=['number'])
+                if not numeric_matrix.empty:
+                    st.dataframe(numeric_matrix[numeric_matrix.isna().any(axis=1)])
                 st.markdown(f"### {bucket} - {name}. dtypes")
                 st.dataframe(matrix.dtypes.to_frame(name='Dtype'))
                 st.markdown(f"### {bucket} - {name}. Description")
