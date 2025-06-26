@@ -103,8 +103,8 @@ class DataQualityAnalysis(MetaModel):
         return prediction_results
 
     @logger.catch()
-    def predict_and_refit(self, X: pd.DataFrame, y: pd.Series = None) -> pd.DataFrame:
-        """Fit the model and predict anomalies.
+    def predict_and_partial_fit(self, X: pd.DataFrame, y: pd.Series = None) -> pd.DataFrame:
+        """Predict and partially fit the model .
 
         Args:
             X (pd.DataFrame): The input data.
@@ -191,6 +191,9 @@ class DataQualityAnalysis(MetaModel):
                 freq_predictions.loc[index, 'frequency_deviation'] = deviation
             else:
                 freq_predictions.loc[index, 'frequency_deviation'] = 0
+                actual_frequency_value = 0
+                logger.warning(
+                    f"Bucket {bucket} or nae {nae} not found in frequency matrix.")
             freq_predictions.loc[index, 'bucket'] = bucket
             freq_predictions.loc[index, 'actual_frequency'] = 1/actual_frequency_value if actual_frequency_value != 0 else 0
         freq_predictions = freq_predictions.reset_index()
