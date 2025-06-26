@@ -80,11 +80,11 @@ class SOLibraryLoader:
             str: The composed query string.
         """
         queries_list = list()
-        buckets_list = query.get("bucket", {}).get("bucket", [])
+        buckets_list = query.get("buckets", [])
         bucket_query = query
         for one_bucket in buckets_list:
             one_bucket_query = bucket_query.copy()
-            one_bucket_query.update({"bucket": {"bucket": one_bucket}})
+            one_bucket_query.update({"buckets": {"bucket": one_bucket}})
             one_bucket_query.update({"range": {"start": start_time, "stop": end_time}})
             logger.info(f"Updated bucket query: {one_bucket_query}")
             queries_list.append(one_bucket_query)
