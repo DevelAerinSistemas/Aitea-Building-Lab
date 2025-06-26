@@ -37,7 +37,7 @@ class DataQualityAnalysis(MetaModel):
         super().__init__()
         self.freq_matrix = pd.DataFrame()
         self.ranges_matrix = pd.DataFrame()
-        self.result_dictionary = {}
+        self.results_dictionary = {}
         self.tdigest_dict = {}
         self.range_sensitivity = parameters.get("sensitivity_threshold", 0.1)
         self.LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
@@ -85,7 +85,7 @@ class DataQualityAnalysis(MetaModel):
         prediction_results = pd.DataFrame()
         predict_freqmatrix = self._predict_freq(X.copy())
         predict_ranges = self._predict_ranges(X.copy())
-        self.result_dictionary = {
+        self.results_dictionary = {
             "frequency_analysis": predict_freqmatrix,
             "range_analysis": predict_ranges}
         
@@ -140,7 +140,7 @@ class DataQualityAnalysis(MetaModel):
         Returns:
             dict: A dictionary containing the results of the analysis.
         """
-        return self.result_dictionary
+        return self.results_dictionary
 
     def get_all_attributes(self):
         """Returns all attributes of the model.
@@ -151,7 +151,7 @@ class DataQualityAnalysis(MetaModel):
         return {
             "ranges_matrix": self.ranges_matrix,
             "freq_matrix": self.freq_matrix,
-            "result_dictionary": self.result_dictionary,
+            "results_dictionary": self.results_dictionary,
             "tdigest_dict": self.tdigest_dict
         }
         

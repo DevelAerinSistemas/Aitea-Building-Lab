@@ -75,7 +75,7 @@ class FrequencyAnalysis(MetaModel):
         """
         prediction_results = pd.DataFrame()
         predict_freqmatrix = self._predict_freq(X.copy())
-        self.result_dictionary = {
+        self.results_dictionary = {
             "frequency_analysis": predict_freqmatrix,}
         return prediction_results
 
@@ -100,7 +100,7 @@ class FrequencyAnalysis(MetaModel):
         Returns:
             dict: A dictionary containing the results of the analysis.
         """
-        return self.result_dictionary
+        return self.results_dictionary
     
     @logger.catch()
     def get_all_attributes(self):
@@ -111,7 +111,7 @@ class FrequencyAnalysis(MetaModel):
         """
         return {
             "freq_matrix": self.freq_matrix,
-            "result_dictionary": self.result_dictionary,
+            "results_dictionary": self.results_dictionary,
         }
      
     
