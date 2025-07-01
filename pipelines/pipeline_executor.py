@@ -272,7 +272,3 @@ class PipelineExecutor(PipelineManager):
         create_so(model_path=model_path)
         logger.info(f"Shared object created at {model_path}")
 
-if __name__ == "__main__":
-    pipe = PipelineExecutor("pipes_schedules/pipe_plan_pepe.json", generate_so=True, save_in_joblib=False)
-    pipe.pipes_executor(testing=True)
-    logger.info("Pipeline execution completed.")

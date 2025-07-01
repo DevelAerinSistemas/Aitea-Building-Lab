@@ -90,7 +90,6 @@ class FrequencyAnalysis(MetaModel):
         info = f"{self.__class__.__name__} - Version: {self.LIBRARY_VERSION}\nDescription: This model establishes data quality.\n"
         info += "It calculates the frequency of each value grouped by 'nae', computes TDigest for temperature, humidity, and CO2, and determines outlier ranges based on the TDigest data."
         info += f"\nFit Date: {self.LIBRARY_FIT_DATE}\n"
-        info += f"Range Sensitivity: {self.range_sensitivity}\n"
         return info
     
     @logger.catch()
