@@ -56,7 +56,7 @@ class SOLibraryLoader:
                 data = self.influxdb_conn.query(query=query, pandas=True, stream=False)
                 logger.info(f"Model Info: {self.exec.get_info()}")
                 if data is not None and not data.empty:
-                    bucket = one_query.get("bucket", {}).get("bucket", "default_bucket")
+                    bucket = one_query.get("buckets", {}).get("bucket", "default_bucket")
                     data.loc[:, "bucket"] = bucket
                     # Se ejecuta la predicción para cada edificio
                     one_prediction = self.exec.predict(data)
