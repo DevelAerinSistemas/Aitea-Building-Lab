@@ -175,3 +175,18 @@ class MetaModel(ABC, BaseEstimator, TransformerMixin):
             dict: A dictionary containing all attributes of the model.
         """
         pass
+
+    @logger.catch()    
+    def update(self, **attributes):
+        """
+        Update the model's attributes with the given values.
+
+        Args:
+            **attributes: A dictionary of attributes to update.
+        """
+        for name, value in attributes.items():
+            if hasattr(self, name):
+                setattr(self, name, value)
+                logger.info(f"Attribute '{name}' updated in {self.__class__.__name__}.")
+            else:
+                logger.warning(f"Attribute '{name}' not found in {self.__class__.__name__}.")

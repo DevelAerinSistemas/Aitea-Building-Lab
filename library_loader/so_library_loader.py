@@ -56,7 +56,7 @@ class SOLibraryLoader:
                 data = self.influxdb_conn.query(query=query, pandas=True, stream=False)
                 logger.info(f"Model Info: {self.exec.get_info()}")
                 if data is not None and not data.empty:
-                    bucket = one_query.get("bucket", {}).get("bucket", "default_bucket")
+                    bucket = one_query.get("buckets", {}).get("bucket", "default_bucket")
                     data.loc[:, "bucket"] = bucket
                     # Se ejecuta la predicción para cada edificio
                     one_prediction = self.exec.predict(data)
@@ -80,11 +80,11 @@ class SOLibraryLoader:
             str: The composed query string.
         """
         queries_list = list()
-        buckets_list = query.get("bucket", {}).get("bucket", [])
+        buckets_list = query.get("buckets", [])
         bucket_query = query
         for one_bucket in buckets_list:
             one_bucket_query = bucket_query.copy()
-            one_bucket_query.update({"bucket": {"bucket": one_bucket}})
+            one_bucket_query.update({"buckets": {"bucket": one_bucket}})
             one_bucket_query.update({"range": {"start": start_time, "stop": end_time}})
             logger.info(f"Updated bucket query: {one_bucket_query}")
             queries_list.append(one_bucket_query)

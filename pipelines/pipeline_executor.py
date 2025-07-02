@@ -30,6 +30,9 @@ from exceptions.fit_exception import InsufficientDataError
 
 logger = get_logger()
 
+
+load_dotenv()
+
 class PipelineManager(object):
 
     @logger.catch
@@ -149,7 +152,8 @@ class PipelineExecutor(PipelineManager):
         self.total_processing = total_processing
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
-        config = get_configuration()
+        config_path = os.getenv("CONFIG_PATH", "config/global_config.json")
+        config = get_configuration(config_path)
         influxdb_conn = InfluxDBConnector()
         buckets_not_considered = set(config.get("buckets_not_considered", []))
         self.create_pipelines(influxdb_conn, buckets_not_considered)
@@ -175,7 +179,7 @@ class PipelineExecutor(PipelineManager):
         if isinstance(buckets, list):
             for bucket in buckets:
                 logger.info(f"Starting query generation for bucket '{bucket}'")
-                query_dict = {"bucket":{"bucket":bucket}}
+                query_dict = {"buckets":{"bucket":bucket}}
                 for k,v in training_query.items():
                     if k!="buckets":
                         query_dict[k] = v
@@ -267,3 +271,4 @@ class PipelineExecutor(PipelineManager):
         """
         create_so(model_path=model_path)
         logger.info(f"Shared object created at {model_path}")
+

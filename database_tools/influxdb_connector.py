@@ -21,6 +21,7 @@ import time
 import pandas as pd
 from typing import Union
 from datetime import datetime
+from dotenv import load_dotenv
 
 
 from influxdb_client import InfluxDBClient, BucketsApi
@@ -35,6 +36,8 @@ warnings.simplefilter("ignore",MissingPivotFunction)
 from utils.file_utils import get_configuration
 from utils.logger_config import get_logger
 logger = get_logger()
+
+load_dotenv()
 
 class InfluxDBConnector(object):
     """Class to create a connection with InfluxDB
@@ -56,7 +59,8 @@ class InfluxDBConnector(object):
         self.am_bucket_api = None
         self.existence = True
         self.config_error = False 
-        global_config = get_configuration()
+        config_path = os.getenv("CONFIG_PATH", "config/global_config.json")
+        global_config = get_configuration(config_path)
         self.data_base_config = global_config.get("influxdb")
         self.load_configuration()
         self.queries = global_config.get("influx_queries")
@@ -313,7 +317,13 @@ class InfluxDBConnector(object):
                             query += " or "
                     query += ")"
                 else:
-                    one_template = self.queries[key].format(**value)
+                    if isinstance(value, dict):
+                        for k, v in value.items():
+                            if isinstance(v, bool):
+                                value[k] = str(v).lower()
+                        one_template = self.queries[key].format(**value)
+                    else:
+                        one_template = self.queries[key].format(**value)
                     query += "\n" + one_template
             except Exception as err:
                 logger.warning(f"There was an error while composing influx query from dict for key '{key}': {err}")

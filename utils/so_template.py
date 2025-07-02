@@ -43,9 +43,18 @@ class PipeExecutor:
         pipe_core = self.pipe.get("pipe")
         return pipe_core.predict(X)
     
-    def predict_and_refit(self, X: pd.DataFrame):
+    def predict_and_partial_fit(self, X: pd.DataFrame):
+        returned = None
         pipe_core = self.pipe.get("pipe")
-        return pipe_core.predict_and_refit(X)
+        try:
+            returned = pipe_core.predict_and_partial_fit(X)
+        except Exception as err:
+            logging.error(f"Error in predict_and_partial_fit: It is possible that the analytics cannot be partially fitted or the function is not defined. Original error: {err}")
+            returned = self.predict(X)
+        else:
+            logging.info("Predict and partial fit executed successfully")
+        return returned 
+        
         
     def get_results(self) -> pd.DataFrame:
         result = list()
@@ -66,9 +75,11 @@ class PipeExecutor:
         pipe_core = self.pipe.get("pipe")
         for pipe_section in pipe_core.steps:
             try:
-                pipe_section[1].update_parameters(attributes)
+                pipe_section[1].update_parameters(**attributes)
             except Exception as err:
                 logging.warning(f'Error updating parameters')
+            else:
+                logging.info(f'Parameters updated for {{attributes}}')
         
     def get_matrix(self) -> list:
         matrix = list()
@@ -108,3 +119,12 @@ class PipeExecutor:
             else:
                 info[pipe_section[0]] = one_info
         return info
+
+    def get_all_class_attributes(self):
+        pipe_core = self.pipe.get("pipe")
+        attributes = dict()
+        for pipe_section in pipe_core.steps:
+            pipe_name = pipe_section[0]
+            one_pipe = pipe_section[1]
+            attributes[pipe_name] = one_pipe.__dict__
+        return attributes
