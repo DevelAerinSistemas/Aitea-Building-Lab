@@ -36,11 +36,11 @@ def load_json_file(path: str) -> dict:
         )
     return json_file
 
-def get_configuration(global_configuration: str = 'config/global_config.json', section: str = None) -> dict:
+def get_configuration(global_configuration: str = 'config/global.json', section: str = None) -> dict:
     """Get configuration from file
 
     Args:
-        global_configuration (str, optional): Configuration file path. Defaults to 'config/global_config.json'.
+        global_configuration (str, optional): Configuration file path. Defaults to 'config/global.json'.
         section (str, optional): Configuration section. Defaults None. 
     Returns:
         dict: Configuration dict
@@ -56,23 +56,3 @@ def get_configuration(global_configuration: str = 'config/global_config.json', s
     except JSONDecodeError:
         logger.error(f" Wrong or poorly formatted json : {global_configuration}")
     return config_dictionary
-
-
-def get_influx_queries(influx_q_path: str = './config/influx_q.json') -> dict:
-    """Get influx queries dictionary
-
-    Args:
-        influx_q_path (str, optional): json influx queries file path. Defaults to 'config/connections/influx_q.json'.
-
-    Returns:
-        dict: Dict with influx queries
-    """
-    influx_q_dictionary = None
-    try:
-        with open(influx_q_path) as config_file:
-            influx_q_dictionary = json.load(config_file)
-    except FileNotFoundError:
-        logger.error(f"Influx queries file not found : {influx_q_path}") 
-    except json.decoder.JSONDecodeError:
-        logger.error(f" Wrong or poorly formatted json : {influx_q_path}")
-    return influx_q_dictionary

@@ -14,7 +14,7 @@ import os
 from utils.file_utils import get_configuration
 from utils.logger_config import get_logger
 
-from database_tools.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
 from testing_tools.testing_influxdb import generate_testing_data, upload_testing_data
 from pipelines.pipeline_executor import PipelineExecutor
 

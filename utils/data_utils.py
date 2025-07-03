@@ -82,24 +82,5 @@ def fill_nan(dataframe: pd.DataFrame) -> pd.DataFrame:
     return dataframe
 
 
-def get_influx_queries(influx_q_path: str = './config/influx_q.json') -> dict:
-    """Get influx queries dictionary
-
-    Args:
-        influx_q_path (str, optional): json influx queries file path. Defaults to 'config/connections/influx_q.json'.
-
-    Returns:
-        dict: Dict with influx queries
-    """
-    influx_q_dictionary = None
-    try:
-        with open(influx_q_path) as config_file:
-            influx_q_dictionary = json.load(config_file)
-    except FileNotFoundError:
-        logger.error(f"Influx queries file not found : {influx_q_path}") 
-    except json.decoder.JSONDecodeError:
-        logger.error(f" Wrong or poorly formatted json : {influx_q_path}")
-    return influx_q_dictionary
-
 
         

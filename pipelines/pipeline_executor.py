@@ -20,7 +20,7 @@ import subprocess
 from dotenv import load_dotenv
 import os
 
-from database_tools.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
 from utils.file_utils import load_json_file, get_configuration
 from utils.logger_config import get_logger
@@ -44,7 +44,7 @@ class PipelineManager(object):
         """
         self.configuration = read_json_schedule_plan(configuration_definition_file)
         if self.configuration is None:
-            logger.error(f'"Error in configuration, the pipes cannot be trained')
+            logger.error(f"❌ Error in configuration, the pipes cannot be trained")
         self.pipes = {}
 
     @logger.catch
@@ -87,7 +87,7 @@ class PipelineManager(object):
         for element, params in steps.items():
             one_instance = self._generate_instance(element, params)
             if one_instance is None:
-                logger.critical(f"Error creating instance for {element}.")
+                logger.critical(f"❌ Error creating instance for {element}.")
                 exit(1)
             pipe_parts.append((element, one_instance))
         return Pipeline(pipe_parts)
@@ -128,11 +128,11 @@ class PipelineManager(object):
             the_class = getattr(module, class_elements[1])
             instance = the_class(**class_attributes)
         except ModuleNotFoundError as e: 
-            logger.error(f"Error: The module'{class_elements[0]}', not found or other error in module: {e}")
+            logger.error(f"❌ Error: The module'{class_elements[0]}', not found or other error in module: {e}")
         except AttributeError as e:
-            logger.error(f"Error: The class '{class_elements[1]}' not found. {e}")
+            logger.error(f"❌ Error: The class '{class_elements[1]}' not found. {e}")
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.error(f"❌ Unexpected error: {e}")
         return instance
 
 
@@ -155,6 +155,7 @@ class PipelineExecutor(PipelineManager):
         config_path = os.getenv("CONFIG_PATH", "config/global_config.json")
         config = get_configuration(config_path)
         influxdb_conn = InfluxDBConnector()
+        influxdb_conn.connect()
         buckets_not_considered = set(config.get("buckets_not_considered", []))
         self.create_pipelines(influxdb_conn, buckets_not_considered)
         for name, pipes_data in self.pipes.items():
@@ -178,8 +179,8 @@ class PipelineExecutor(PipelineManager):
         total_dataframe = None
         if isinstance(buckets, list):
             for bucket in buckets:
-                logger.info(f"Starting query generation for bucket '{bucket}'")
-                query_dict = {"buckets":{"bucket":bucket}}
+                logger.info(f"⚙️ Starting query generation for bucket '{bucket}'")
+                query_dict = {"bucket":bucket}
                 for k,v in training_query.items():
                     if k!="buckets":
                         query_dict[k] = v
@@ -187,10 +188,10 @@ class PipelineExecutor(PipelineManager):
                 query_parts = training_query.get("query_parts",[])
                 if query_parts:
                     query_parts.insert(0,query.split("\n")[1])
-                    logger.info(f"Query parts available: {query_parts}")
-                    logger.info(f"Using query_params: {query_params}")
+                    logger.info(f"💬 Query parts available: {query_parts}")
+                    logger.info(f"💬 Using query_params: {query_params}")
                     query = "\n  |>".join(query_parts).format(**query_params)
-                logger.info(f"Retrieving data from InfluxDB using query:\n{query}")
+                logger.info(f"⚙️ Retrieving data from InfluxDB using query:\n{query}")
                 stream_data = influxdb_conn.query(
                     query=query, 
                     pandas=True, 
@@ -198,7 +199,7 @@ class PipelineExecutor(PipelineManager):
                 )
                 if stream_data is None:
                     continue
-                logger.info(f" End query in {bucket}")
+                logger.info(f"✅ Query data retrieval finished for bucket '{bucket}'")
                 stream_data["bucket"] = bucket
                 dataframe_list.append(stream_data)
             if len(dataframe_list) > 0:
@@ -214,10 +215,10 @@ class PipelineExecutor(PipelineManager):
         """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipes.items():
-                logger.info(f"Acquiring influx data to perform task '{pipe_name}'")
+                logger.info(f"⚙️ Getting data from InfluxDB to perform task '{pipe_name}'")
                 data = self.data_preparation(pipe_info)
                 if data is None:
-                    logger.warning("Empty data, can't do training")
+                    logger.warning("⚠️ Empty data, can't do training")
                     continue
                 else:
                     pipe_core = {
@@ -231,7 +232,7 @@ class PipelineExecutor(PipelineManager):
                         callback=self.task_handler,
                         error_callback=self.error_handler
                         )
-                    logger.info(f"Geting fit to {pipe_name}")
+                    logger.info(f"⚙️ Geting fit to {pipe_name}")
             pool.close()
             pool.join()
 
@@ -243,14 +244,14 @@ class PipelineExecutor(PipelineManager):
             result: The result of the fitting process.
         """
         if result == "InsufficientDataError":
-            logger.critical(f" Not enough data to train")
+            logger.critical(f"❌ Not enough data to train")
         elif result == "KeyError":
-            logger.critical(f"The pipe is malformed, keys are missing")
+            logger.critical(f"❌ The pipe is malformed, keys are missing")
         else:
             training_file = pipe_save(result, self.save_in_joblib)
-            logger.info(f"End pipe fit. It is saved {training_file}")
+            logger.success(f"✅ End pipe fit. It is saved {training_file}")
             if self.generate_so:
-                logger.info("Creating shared object")
+                logger.info("⚙️ Creating shared object")
                 self.launch_create_so(training_file)
 
     @logger.catch
@@ -260,7 +261,7 @@ class PipelineExecutor(PipelineManager):
         Args:
             result: The error result from the fitting process.
         """
-        logger.error(f"Error in fit {result}")
+        logger.error(f"❌ Error in fit {result}")
 
     @logger.catch
     def launch_create_so(self, model_path: str) -> None:
@@ -270,5 +271,5 @@ class PipelineExecutor(PipelineManager):
             model_path (str): Path to the model file.
         """
         create_so(model_path=model_path)
-        logger.info(f"Shared object created at {model_path}")
+        logger.success(f"✅ Shared object created at {model_path}")
 

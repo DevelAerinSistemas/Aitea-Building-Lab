@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License along with thi
  '''
  
  
-from database_tools.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
 from utils.file_utils import load_json_file
 
 
