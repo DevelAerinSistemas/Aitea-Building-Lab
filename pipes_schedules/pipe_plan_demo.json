@@ -1,6 +1,19 @@
 {
     "demo": {
         "steps": {
+            "demo.DemoFuse": {
+                "data_sources": [
+                    "influxdb",
+                    "postgresql",
+                    "local"
+                ],
+                "postgresql": {
+                    "table": "measuremet_2",
+                    "filter_field": "field_21",
+                    "filter_value": 2.0,
+                    "limit": 100
+                }
+            },
             "demo.DemoTransform": {
                 "example_parameter": 1.0
             },
@@ -8,21 +21,33 @@
                 "example_parameter": 2.0
             }
         },
-        "training_query": {
-            "buckets": [
-                "demo"
-            ],
-            "range": {
-                "start": "2025-06-01T00:00:00.000Z", 
-                "stop": "2025-06-04T00:00:00.000Z"
-            },
-            "filter_measurement": {
-                "measurement": "measurement_1"
-            }, 
-            "filter_field": [
-                {"field": "field_12"}, 
-                {"field": "field_13"} 
+        "influxdb": {
+            "training_query": {
+                "buckets": [
+                    "demo"
+                ],
+                "range": {
+                    "start": "2025-06-01T00:00:00.000Z", 
+                    "stop": "2025-06-04T00:00:00.000Z"
+                },
+                "filter_measurement": {
+                    "measurement": "measurement_1"
+                }, 
+                "filter_field": [
+                    {"field": "field_12"}, 
+                    {"field": "field_13"} 
+                ]
+            }
+        },
+        "postgresql": {
+            "query_parts": [
+                "SELECT * from {table}",
+                "WHERE '{filter_field}' == {filter_value}",
+                "LIMIT {limit}"
             ]
-        }
+        },
+        "local": [
+            "testing_tools/demo_data.csv"
+        ]
     }
 }

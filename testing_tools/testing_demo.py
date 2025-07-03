@@ -189,8 +189,7 @@ if __name__ == "__main__":
 
         # Configuration
         load_dotenv()
-        config_json = get_configuration()
-        demo_conf = config_json.get("demo")
+        demo_conf = config_json.get("config/demo.json")
         demo_pipe_plan_path = demo_conf.get("pipe_plan_path")
         demo_pipe_plan = load_json_file(demo_pipe_plan_path).get("demo")
         demo_pipe_plan_query = demo_pipe_plan.get("training_query")

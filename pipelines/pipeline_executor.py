@@ -21,6 +21,8 @@ from dotenv import load_dotenv
 import os
 
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
 from utils.file_utils import load_json_file, get_configuration
 from utils.logger_config import get_logger
@@ -152,12 +154,22 @@ class PipelineExecutor(PipelineManager):
         self.total_processing = total_processing
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
-        config_path = os.getenv("CONFIG_PATH", "config/global_config.json")
+        config_path = os.getenv("CONFIG_PATH")
         config = get_configuration(config_path)
-        influxdb_conn = InfluxDBConnector()
-        influxdb_conn.connect()
-        buckets_not_considered = set(config.get("buckets_not_considered", []))
-        self.create_pipelines(influxdb_conn, buckets_not_considered)
+        connections = {}
+        for conn in config.get("data_sources"):
+            if conn == "local":
+                continue
+            else:
+                if conn == "influxdb":
+                    connections[conn] ={"connector": InfluxDBConnector()}
+                    connections.update(zip(("connection_status","connection_client"),connections[conn]["connector"].connect()))
+                    buckets_not_considered = set(config.get("buckets_not_considered", []))
+                    self.create_pipelines(connections[conn]["connector"], buckets_not_considered)
+                elif conn == "postgresql":
+                    connections[conn] ={"connector": PostgreSQLConnector()}
+                    connections.update(zip(("connection_status","connection_client"),connections[conn]["connector"].connect()))
+                     self.create_pipelines(connections[conn]["connector"])
         for name, pipes_data in self.pipes.items():
             pipes_data["connection"] = influxdb_conn
         

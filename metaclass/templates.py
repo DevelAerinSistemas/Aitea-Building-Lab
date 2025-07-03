@@ -16,6 +16,41 @@ from loguru import logger
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
+class MetaFusion(ABC):
+    """Metaclass to be used in data fusing
+    """
+    def __init__(self, data_sources: dict = {}) -> None:
+        """Constructor of the class
+
+        Args:
+            data_sources (dict): _description
+        """
+        self.data_sources = data_sources
+
+    @abstractmethod
+    def fuse_data_sources(self) -> Any:
+        """_summary
+
+        Returns:    
+            Any: np.ndarry or pd.DataFrame with data for fit
+        """
+        pass
+    
+    @logger.catch
+    def get_data_from_source(self, data_source_name: str) -> Any:
+        """Gets data from 'self.data_sources' with name 'data_source_name'
+
+        Args:
+            data_source_name (str): data source name, e.g. 'influxdb', 'postgresql', 'local', etc.
+
+        Returns:    
+            Any: np.ndarry or pd.DataFrame with data from data source 'data_source_name'
+        """
+        if data_source_name not in self.data_sources:
+            logger.warning(f"Data source '{data_source_name}' not available. Available data_sources are: {list(self.data_sources.keys())}")
+        return self.data_sources.get(data_source_name)
+
+
 class MetaTransform(ABC, BaseEstimator, TransformerMixin):
     """Metaclass to be used in transformations
     """

@@ -12,10 +12,51 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
-from metaclass.templates import MetaTransform, MetaModel
+from metaclass.templates import MetaFuse, MetaTransform, MetaModel
 import datetime
 
-LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+class DemoFuse(MetaFuse):
+
+    def __init__(self, **parameters):
+        """Example
+
+        Args:
+            parameters (kwargs): Example parameters for the template.
+        """
+        super().__init__()
+        self.LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+        self.LIBRARY_FIT_DATE = self.LIBRARY_VERSION
+        self.parameters = parameters
+        self.results_dictionary = {}
+    
+    # ABSTRACT METHODS
+    
+    @logger.catch
+    def fuse_data_sources(self) -> Any:
+        """Example
+
+        Returns:
+            Any: Example output of data fusing
+        """
+        Xs = []
+        for source, data in self.data_sources.items():
+            try:
+                if source == "local":
+                    for local_source in data:
+                        source_type = local_source.split(".")[-1]
+                        if source_type == "csv":
+                            Xs.append(pd.read_csv(local_source))
+                        elif source_type == "json":
+                            Xs.append(pd.read_json(local_source))
+                        elif source_type in ["xlsx", "ods"]:
+                            Xs.append(pd.read_excel(local_source))
+                        else:
+                            logger.warning(f"Reading data from source of type '{source_type}' not implemented yet")
+                else:
+                    Xs.append(pd.DataFrame(data))
+            except Exception as err:
+                logger.warningf(f"Error converting data from source '{source}' into pd.DataFrame: {error}")
+        return pd.concat(Xs, ignore_index=True)
 
 class DemoTransform(MetaTransform):
 
@@ -23,9 +64,11 @@ class DemoTransform(MetaTransform):
         """Example
 
         Args:
-            example_parameter (float): Example parameter for the template.
+            parameters (kwargs): Example parameters for the template.
         """
         super().__init__()
+        self.LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+        self.LIBRARY_FIT_DATE = self.LIBRARY_VERSION
         self.parameters = parameters
         self.results_dictionary = {}
     
@@ -75,9 +118,11 @@ class DemoModel(MetaModel):
         """Example
 
         Args:
-            example_parameter (float): Example parameter for the template.
+            parameters (kwargs): Example parameters for the template.
         """
         super().__init__()
+        self.LIBRARY_VERSION = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+        self.LIBRARY_FIT_DATE = self.LIBRARY_VERSION
         self.parameters = parameters
         self.results_dictionary = {}
     
