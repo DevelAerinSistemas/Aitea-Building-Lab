@@ -15,9 +15,11 @@ from utils.file_utils import get_configuration, load_json_file
 from utils.logger_config import get_logger
 
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
 from pipelines.pipeline_executor import PipelineExecutor
 
 import pandas as pd
+import numpy as np
 import csv
 import datetime
 import random
@@ -168,7 +170,7 @@ def generate_demo_data(parameters:dict) -> None :
         logger.success(f"Generated {count} data points into {path}")
 
 @logger.catch
-def upload_demo_data(influxdb_conn: InfluxDBConnector, testing_conf: dict, testing_df: pd.DataFrame) -> None:
+def upload_demo_data_to_influx(influxdb_conn: InfluxDBConnector, testing_conf: dict, testing_df: pd.DataFrame) -> None:
     """TBD"""
     influxdb_conn.bucket_creator(testing_conf.get("bucket"))
     measurement_column = testing_conf.get("data").get("measurement_column")
@@ -181,6 +183,109 @@ def upload_demo_data(influxdb_conn: InfluxDBConnector, testing_conf: dict, testi
             timestamp = testing_conf.get("data").get("timestamp_column")
         )
 
+@logger.catch
+def _map_pandas_to_postgres_type(dtype: np.dtype) -> str:
+    """Maps a pandas dtype to a corresponding PostgreSQL data type."""
+    if pd.api.types.is_integer_dtype(dtype):
+        return "BIGINT"
+    elif pd.api.types.is_float_dtype(dtype):
+        return "FLOAT"
+    elif pd.api.types.is_datetime64_any_dtype(dtype):
+        return "TIMESTAMP"
+    elif pd.api.types.is_bool_dtype(dtype):
+        return "BOOLEAN"
+    # Default to TEXT for object, string, and other types
+    return "TEXT"
+
+@logger.catch
+def _format_sql_value(value):
+    """Formats a Python value for use in a raw SQL query string."""
+    if pd.isna(value):
+        return "NULL"
+    elif isinstance(value, str):
+        # Escape single quotes by doubling them up for SQL
+        return f"""'{value.replace("'", "''")}'"""
+    elif isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    # For numbers, dates, etc., psycopg2 handles them well, but for raw string
+    # it's safest to convert to string. Dates should be quoted.
+    elif pd.api.types.is_datetime64_any_dtype(type(value)):
+        return f"'{value}'"
+    else:
+        return str(value)
+
+@logger.catch
+def upload_demo_data_to_postgresql(
+    pg_connector: PostgreSQLConnector,
+    testing_df: pd.DataFrame,
+    table_name: str,
+    chunk_size: int = 500,
+):
+    """
+    Creates a table in PostgreSQL and uploads data from a pandas DataFrame.
+
+    This function uses only the `execute` method of the provided connector.
+    It first drops the table if it exists, then creates a new one based on
+    the DataFrame's schema, and finally inserts the data in batches.
+
+    Args:
+        pg_connector (PostgreSQLConnector): An instantiated connector object.
+        testing_df (pd.DataFrame): The DataFrame containing the data to upload.
+        table_name (str): The name of the table to create in the database.
+        chunk_size (int): The number of rows to insert in a single batch.
+    """
+    if testing_df.empty:
+        logger.warning(f"DataFrame is empty. No action taken for table '{table_name}'.")
+        return
+
+    # Ensure table name is a valid SQL identifier (basic sanitization)
+    safe_table_name = "".join(c for c in table_name if c.isalnum() or c == '_')
+    if safe_table_name != table_name:
+        raise ValueError(f"Invalid table name '{table_name}'. Only alphanumeric characters and underscores are allowed.")
+
+    # 1. Drop existing table for a clean slate
+    logger.info(f"Dropping table '{safe_table_name}' if it exists...")
+    drop_query = f"DROP TABLE IF EXISTS {safe_table_name};"
+    pg_connector.execute(drop_query)
+
+    # 2. Create the CREATE TABLE statement
+    logger.info(f"Generating CREATE TABLE statement for '{safe_table_name}'...")
+    column_definitions = []
+    for col_name, dtype in testing_df.dtypes.items():
+        pg_type = _map_pandas_to_postgres_type(dtype)
+        # Quote column names to handle spaces or special characters
+        column_definitions.append(f'"{col_name}" {pg_type}')
+    
+    create_query = f"CREATE TABLE {safe_table_name} ({', '.join(column_definitions)});"
+    pg_connector.execute(create_query)
+    logger.success(f"Table '{safe_table_name}' created successfully.")
+
+    # 3. Insert data in batches
+    logger.info(f"Preparing to insert {len(testing_df)} rows in chunks of {chunk_size}...")
+    
+    # Get quoted column names for the INSERT statement
+    quoted_cols = [f'"{col}"' for col in testing_df.columns]
+    insert_cols_sql = f"({', '.join(quoted_cols)})"
+    
+    total_rows_inserted = 0
+    for i in range(0, len(testing_df), chunk_size):
+        chunk_df = testing_df.iloc[i:i + chunk_size]
+        
+        value_strings = []
+        for _, row in chunk_df.iterrows():
+            formatted_values = [_format_sql_value(val) for val in row]
+            value_strings.append(f"({', '.join(formatted_values)})")
+            
+        # Construct the multi-row INSERT statement
+        values_sql = ",\n".join(value_strings)
+        insert_query = f"INSERT INTO {safe_table_name} {insert_cols_sql} VALUES\n{values_sql};"
+        
+        rows_affected = pg_connector.execute(insert_query)
+        total_rows_inserted += rows_affected
+        logger.info(f"Inserted batch {i//chunk_size + 1}. Rows affected: {rows_affected}")
+
+    logger.success(f"🚀 Upload complete. Total rows inserted into '{safe_table_name}': {total_rows_inserted}")
+
 
 if __name__ == "__main__":
 
@@ -189,12 +294,17 @@ if __name__ == "__main__":
 
         # Configuration
         load_dotenv()
-        demo_conf = config_json.get("config/demo.json")
+        demo_conf = load_json_file("config/demo.json")
         demo_pipe_plan_path = demo_conf.get("pipe_plan_path")
         demo_pipe_plan = load_json_file(demo_pipe_plan_path).get("demo")
-        demo_pipe_plan_query = demo_pipe_plan.get("training_query")
-        demo_pipe_plan_query["bucket"] = demo_pipe_plan_query["buckets"][0]
-        del demo_pipe_plan_query["buckets"]
+
+        postgresql_query_params = demo_pipe_plan.get("steps").get("demo.DemoFuse").get("postgresql")
+        demo_pipe_plan_postgresql_query = "\n".join(demo_pipe_plan.get("postgresql").get("query_parts")).format(**postgresql_query_params)
+
+        demo_pipe_plan_influx_query = demo_pipe_plan.get("influxdb").get("training_query")
+        demo_pipe_plan_influx_query["bucket"] = demo_pipe_plan_influx_query["buckets"][0]
+        del demo_pipe_plan_influx_query["buckets"]
+
         logger.success(f"Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
         
         # Creating demo data
@@ -203,20 +313,30 @@ if __name__ == "__main__":
         demo_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
         logger.success(f"Demo data correctly generated. Sneak peek:\n{demo_df.head()}")
 
-        # Uploading demo data
+        # Uploading demo data to InfluxDB
         influxdb = InfluxDBConnector()
         influxdb.connect()
-        upload_demo_data(influxdb, demo_conf, demo_df)
-        
-        # Retrieving demo data
-        data = influxdb.request_query(query_dict=demo_pipe_plan.get("training_query"), pandas=True)
-        influxdb.disconnect()
-        logger.info(f"Demo data correctly retrieved from database. Sneak peek:\n{data.head()}")
+        upload_demo_data_to_influx(influxdb, demo_conf, demo_df)
 
-        # Demo pipelines generating model .pkl and library .so
-        pipe = PipelineExecutor(demo_pipe_plan_path, generate_so=True, save_in_joblib=False)
-        pipe.pipes_executor(testing=False)
-        logger.success("Pipeline execution was successful")
+        # Uploading demo data to PostgreSQL
+        postgresql = PostgreSQLConnector()
+        postgresql.connect()
+        upload_demo_data_to_postgresql(postgresql, demo_df, demo_conf.get("bucket"))
+        
+        # Retrieving demo data from InfluxDB
+        data_influx = influxdb.request_query(query_dict=demo_pipe_plan_influx_query, pandas=True)
+        influxdb.disconnect()
+        logger.info(f"Demo data correctly retrieved from Influx database. Sneak peek:\n{data_influx.head()}")
+
+        # Retrieving demo data from PostgreSQL
+        data_postgresql = postgresql.query_to_df(demo_pipe_plan_postgresql_query)
+        postgresql.disconnect()
+        logger.info(f"Demo data correctly retrieved from PostgreSQL database. Sneak peek:\n{data_postgresql.head()}")
+
+        # # Demo pipelines generating model .pkl and library .so
+        # pipe = PipelineExecutor(demo_pipe_plan_path, generate_so=True, save_in_joblib=False)
+        # pipe.pipes_executor(testing=False)
+        # logger.success("Pipeline execution was successful")
 
     except Exception as err:
         logger.error(f"Error found when running test: {err}")

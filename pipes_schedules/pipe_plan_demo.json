@@ -8,9 +8,9 @@
                     "local"
                 ],
                 "postgresql": {
-                    "table": "measuremet_2",
+                    "table": "demo",
                     "filter_field": "field_21",
-                    "filter_value": 2.0,
+                    "filter_value": 500.0,
                     "limit": 100
                 }
             },
@@ -42,7 +42,7 @@
         "postgresql": {
             "query_parts": [
                 "SELECT * from {table}",
-                "WHERE '{filter_field}' == {filter_value}",
+                "WHERE {filter_field} > {filter_value}",
                 "LIMIT {limit}"
             ]
         },

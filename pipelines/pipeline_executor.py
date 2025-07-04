@@ -169,7 +169,7 @@ class PipelineExecutor(PipelineManager):
                 elif conn == "postgresql":
                     connections[conn] ={"connector": PostgreSQLConnector()}
                     connections.update(zip(("connection_status","connection_client"),connections[conn]["connector"].connect()))
-                     self.create_pipelines(connections[conn]["connector"])
+                    self.create_pipelines(connections[conn]["connector"])
         for name, pipes_data in self.pipes.items():
             pipes_data["connection"] = influxdb_conn
         
