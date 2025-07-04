@@ -11,7 +11,7 @@
 from dotenv import load_dotenv
 import os
 
-from utils.file_utils import get_configuration, load_json_file
+from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
 
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -333,10 +333,10 @@ if __name__ == "__main__":
         postgresql.disconnect()
         logger.info(f"Demo data correctly retrieved from PostgreSQL database. Sneak peek:\n{data_postgresql.head()}")
 
-        # # Demo pipelines generating model .pkl and library .so
-        # pipe = PipelineExecutor(demo_pipe_plan_path, generate_so=True, save_in_joblib=False)
-        # pipe.pipes_executor(testing=False)
-        # logger.success("Pipeline execution was successful")
+        # Demo pipelines generating model .pkl and library .so
+        pipe = PipelineExecutor(demo_pipe_plan_path, generate_so=True, save_in_joblib=False)
+        pipe.pipes_executor(testing=False)
+        logger.success("Pipeline execution was successful")
 
     except Exception as err:
         logger.error(f"Error found when running test: {err}")

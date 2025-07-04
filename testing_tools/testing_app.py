@@ -11,7 +11,7 @@
 from dotenv import load_dotenv
 import os
 
-from utils.file_utils import get_configuration
+from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
 
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -29,7 +29,8 @@ if __name__ == "__main__":
 
         # Configuration
         load_dotenv()
-        config_json = get_configuration()
+        config_path = os.getenv("CONFIG_PATH")
+        config_json = load_json_file(config_path)
         logger.success(f"Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
         pipe_plan_path = config_json.get("pipe_plan_path")
         logger.info(f"Using pipe schedule from '{pipe_plan_path}'")

@@ -51,5 +51,8 @@
         "max_retries": 5,
         "retry_delay": 5
     },
+    "local": [
+        "training_files"
+    ],
     "pipe_plan_path": "pipes_schedules/pipe_plan.json"
 }

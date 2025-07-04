@@ -24,7 +24,7 @@ from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
 from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
 
 from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
-from utils.file_utils import load_json_file, get_configuration
+from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
 from utils.so_utils import create_so
 from exceptions.fit_exception import InsufficientDataError
@@ -38,78 +38,150 @@ load_dotenv()
 class PipelineManager(object):
 
     @logger.catch
-    def __init__(self, configuration_definition_file: str):
+    def __init__(self, pipeline_config_file: str):
         """Create and manage scikit-learn pipelines
 
         Args:
-            configuration_definition_file (str): Configuration file 
+            pipeline_config_file (str): Configuration file 
         """
-        self.configuration = read_json_schedule_plan(configuration_definition_file)
-        if self.configuration is None:
-            logger.error(f"❌ Error in configuration, the pipes cannot be trained")
-        self.pipes = {}
+        global_config_path = os.getenv("CONFIG_PATH")
+
+        self.global_config = load_json_file(config_path)
+        if self.global_config is None:
+            logger.error(f"❌ Error loading global configuration, {self.__class__.__name__} could not be instantiated successfully")
+        else:
+            self.connections = self.create_connections()
+
+        self.pipeline_config = read_json_schedule_plan(pipeline_config_file)
+        if self.pipeline_config is None:
+            logger.error(f"❌ Error loading pipeline configuration, {self.__class__.__name__} could not be instantiated successfully")
+        else:
+            self.pipelines = self.create_pipelines()
 
     @logger.catch
-    def create_pipelines(self, influxdb_conn: InfluxDBConnector, buckets_not_considered: set):
-        """Create all pipes
+    def create_connections(self) -> dict:
+        """Create all connections
+        Returns:
+            dict: connections
         """
-        if self.configuration:
-            for pipe_name, pipe_values in self.configuration.items():
-                pipe = self.create_one_pipeline(pipe_values)
-                query = pipe_values.get("training_query")
-                buckets = query.get("buckets")
-                final_buckets = self.get_valid_buckets(
-                    buckets, 
-                    influxdb_conn, 
-                    buckets_not_considered
-                )
-                query["buckets"] = final_buckets
-                freq_info = pipe_values.get("freq_info")
-
-                self.pipes[pipe_name] = {
-                    "pipe":  pipe, 
-                    "training_query": query, 
-                    "freq_info": freq_info,
-                }
-                if "query_parts" in query:
-                    self.pipes[pipe_name]["query_params"] = pipe.steps[0][1].generate_query_params()
+        connections = {}
+        for conn_name, conn_values in self.global_config.get("data_sources").items():
+            if conn_name == "local":
+                connections[conn_name] = []
+                for folder in conn_values:
+                    if os.path.exist(folder):
+                        connections[conn_name].append(folder)
+                    else:
+                        logger.warning(f"⚠️ Folder '{folder}' for training files does not exixt")
+            elif conn_name == "influxdb":
+                connections[conn_name] = {"connector": InfluxDBConnector()}
+                connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+            elif conn_name == "postgresql":
+                connections[conn_name] = {"connector": PostgreSQLConnector()}
+                connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+            else:
+                logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
+        return connections
 
     @logger.catch
-    def create_one_pipeline(self, pipeline_details: dict) -> Pipeline:
+    def get_valid_buckets(self, candidate_buckets: list) -> list:
+       """Get all buckets from the configuration.
+       Args:
+           candidate_buckets (list): List of actual buckets.
+       Returns:
+           list: List of all buckets.
+       """
+       valid_buckets = []
+       if "all_buckets" in candidate_buckets or "all" in candidate_buckets:
+           valid_buckets = set(self.connections["influxdb"]["connector"].get_bucket_list()) - self.global_config.get("influxdb",{}).get("buckets_not_considered",set())
+           valid_buckets = [bucket for bucket in valid_buckets if not bucket.startswith("_")]
+       else:
+           valid_buckets = candidate_buckets
+       return list(valid_buckets)
+
+    @logger.catch
+    def create_one_pipeline(self, pipeline_steps: dict) -> Pipeline:
         """Create one pipe
 
         Args:
-            pipeline_details (dict): Pipeline configuration details 
+            pipeline_steps (dict): Pipeline steps configuration details 
 
         Returns:
             Pipeline: One scikit-learn pipeline
         """
         pipe_parts = []
-        steps = pipeline_details.get("steps")
-        for element, params in steps.items():
+        for element, params in pipeline_steps.items():
             one_instance = self._generate_instance(element, params)
             if one_instance is None:
-                logger.critical(f"❌ Error creating instance for {element}.")
+                logger.critical(f"❌ Error creating instance of element '{element}'.")
                 exit(1)
             pipe_parts.append((element, one_instance))
         return Pipeline(pipe_parts)
-    
+
     @logger.catch
-    def get_valid_buckets(self, actual_buckets: list, influxdb_conn: InfluxDBConnector, buckets_not_considered: set) -> list:
-       """Get all buckets from the configuration.
-       Args:
-           actual_buckets (list): List of actual buckets.
-           influxdb_conn (InfluxDBConnector): InfluxDB connection object.
-       Returns:
-           list: List of all buckets.
-       """
-       all_buckets = []
-       if "all_buckets" in actual_buckets or "all" in actual_buckets:
-           all_buckets = set(influxdb_conn.get_bucket_list()) - buckets_not_considered   
-           all_buckets = [bucket for bucket in all_buckets if not bucket.startswith("_")]
-       else:   
-           all_buckets = actual_buckets
-       return list(all_buckets)
+    def create_pipeline_datasources(self, pipe_details: dict) -> dict:
+        """Create pipeline datasources
+        Args:
+            pipe_details (dict): pipe details
+
+        Returns:
+            dict: pipeline datasources
+        """
+        pipeline_datasources = {}
+        for data_source, data_source_query in pipe_details.get("steps",{}):
+            if data_source not in self.connections:
+                logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
+                continue
+            if data_source == "influxdb":
+                query = ""
+                if isinstance(data_source_query, list):
+                    query = "\n |> ".join(data_source_query).format(pipe.steps[0][1].get(**data_source,{}))
+                elif isinstance(data_source_query, dict):
+                    data_source_query["buckets"] = self.get_valid_buckets(data_source_query.get("buckets"))
+                    query = self.connections[data_source].compose_influx_query_from_dict(data_source_query)
+                elif isinstance(data_source_query, str):
+                    query = data_source_query
+                else:
+                    logger.critial(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list', 'dict' or 'str' allowed.")
+                    exit(1)
+            if data_source == "postgresql":
+                query = ""
+                if isinstance(data_source_query, list):
+                    query = "\n".join(data_source_query).format(pipe.steps[0][1].get(**data_source,{}))
+                elif isinstance(data_source_query, str):
+                    query = data_source_query
+                else:
+                    logger.critial(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list' or 'str' allowed.")
+                    exit(1)
+            if data_source == "local":
+                query = []
+                if isinstance(data_source_query, list):
+                    for folder in self.connections[data_source]:
+                        for file in data_source_query:
+                            filepath = os.path.join(folder,file)
+                            if os.path.exists(filepath):
+                                query.append(filepath)
+                else:
+                    logger.critial(f"❌ Definition of files for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'str' allowed.")
+                    exit(1)
+            pipeline_datasources[data_source] = query
+        return pipeline_datasources
+
+    @logger.catch
+    def create_pipelines(self) -> dict:
+        """Create all pipes
+        Returns:
+            dict:pipelines
+        """
+        pipelines = {
+            pipe_name: {
+                "pipe": self.create_one_pipeline(pipe_details.get("steps",{})), 
+                "training_query": self.create_pipeline_datasources(pipe_details), 
+                "freq_info": pipe_details.get("freq_info"),
+            }
+            for pipe_name, pipe_details in self.pipeline_config.items()
+        }
+        return pipelines  
 
     @logger.catch
     def _generate_instance(self, class_path: str, class_attributes: dict) -> Any:
@@ -132,7 +204,7 @@ class PipelineManager(object):
         except ModuleNotFoundError as e: 
             logger.error(f"❌ Error: The module'{class_elements[0]}', not found or other error in module: {e}")
         except AttributeError as e:
-            logger.error(f"❌ Error: The class '{class_elements[1]}' not found. {e}")
+            logger.error(f"❌ Error: The class '{class_elements[1]}' not found: {e}")
         except Exception as e:
             logger.error(f"❌ Unexpected error: {e}")
         return instance
@@ -141,36 +213,21 @@ class PipelineManager(object):
 class PipelineExecutor(PipelineManager):
 
     @logger.catch
-    def __init__(self, configuration_definition_file: str, total_processing: int = 4, generate_so: bool = True, save_in_joblib: bool = False):
+    def __init__(self, pipeline_config_file: str, total_processing: int = 4, generate_so: bool = True, save_in_joblib: bool = False):
         """Initializes the PipelineExecutor with configuration and processing options.
 
         Args:
-            configuration_definition_file (str): Configuration file path.
+            pipeline_config_file (str): Configuration file path.
             total_processing (int, optional): Number of processes to use. Defaults to 4.
             generate_so (bool, optional): Flag to generate shared object. Defaults to True.
             save_in_joblib (bool, optional): Flag to save in joblib format. Defaults to False.
         """
-        super().__init__(configuration_definition_file)
+        super().__init__(pipeline_config_file)
         self.total_processing = total_processing
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
-        config_path = os.getenv("CONFIG_PATH")
-        config = get_configuration(config_path)
-        connections = {}
-        for conn in config.get("data_sources"):
-            if conn == "local":
-                continue
-            else:
-                if conn == "influxdb":
-                    connections[conn] ={"connector": InfluxDBConnector()}
-                    connections.update(zip(("connection_status","connection_client"),connections[conn]["connector"].connect()))
-                    buckets_not_considered = set(config.get("buckets_not_considered", []))
-                    self.create_pipelines(connections[conn]["connector"], buckets_not_considered)
-                elif conn == "postgresql":
-                    connections[conn] ={"connector": PostgreSQLConnector()}
-                    connections.update(zip(("connection_status","connection_client"),connections[conn]["connector"].connect()))
-                    self.create_pipelines(connections[conn]["connector"])
-        for name, pipes_data in self.pipes.items():
+        
+        for name, pipes_data in self.pipelines.items():
             pipes_data["connection"] = influxdb_conn
         
     @logger.catch
@@ -226,7 +283,7 @@ class PipelineExecutor(PipelineManager):
             testing (bool, optional): Flag to indicate if the execution is for testing purposes (fit and predict). Defaults to False.
         """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
-            for pipe_name, pipe_info in self.pipes.items():
+            for pipe_name, pipe_info in self.pipelines.items():
                 logger.info(f"⚙️ Getting data from InfluxDB to perform task '{pipe_name}'")
                 data = self.data_preparation(pipe_info)
                 if data is None:

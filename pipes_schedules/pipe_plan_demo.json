@@ -2,11 +2,6 @@
     "demo": {
         "steps": {
             "demo.DemoFuse": {
-                "data_sources": [
-                    "influxdb",
-                    "postgresql",
-                    "local"
-                ],
                 "postgresql": {
                     "table": "demo",
                     "filter_field": "field_21",
@@ -21,8 +16,8 @@
                 "example_parameter": 2.0
             }
         },
-        "influxdb": {
-            "training_query": {
+        "data_sources": {
+            "influxdb": {
                 "buckets": [
                     "demo"
                 ],
@@ -37,17 +32,15 @@
                     {"field": "field_12"}, 
                     {"field": "field_13"} 
                 ]
-            }
-        },
-        "postgresql": {
-            "query_parts": [
+            },
+            "postgresql": [
                 "SELECT * from {table}",
                 "WHERE {filter_field} > {filter_value}",
                 "LIMIT {limit}"
+            ],
+            "local": [
+                "demo_data.csv"
             ]
-        },
-        "local": [
-            "testing_tools/demo_data.csv"
-        ]
+        }
     }
 }
