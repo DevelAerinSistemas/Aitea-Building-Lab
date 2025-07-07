@@ -29,8 +29,26 @@ class PipeExecutor:
     def __init__(self):
         self.pipe = pipeline
     
-    def get_query(self):
-        query = self.pipe.get("training_query")
+    def get_influxdb_query(self):
+        query = self.pipe.get("training_info",{}).get("influxdb")
+        if query:
+            return query.copy()  # Returns a copy to avoid modifying the original
+        return None
+    
+    def get_postgresql_query(self):
+        query = self.pipe.get("training_info",{}).get("postgresql")
+        if query:
+            return query.copy()  # Returns a copy to avoid modifying the original
+        return None
+    
+    def get_datafiles(self):
+        query = self.pipe.get("training_info",{}).get("local")
+        if query:
+            return query.copy()  # Returns a copy to avoid modifying the original
+        return None
+
+    def get_training_info(self):
+        query = self.pipe.get("training_info")
         if query:
             return query.copy()  # Returns a copy to avoid modifying the original
         return None
@@ -63,7 +81,7 @@ class PipeExecutor:
                 try:
                     one_result = pipe_section[1].get_results()
                 except Exception as err:
-                    logging.warning('Possibly the pipe section does not have a get results')
+                    logging.warning("Possibly the pipe section does not have a 'get_results' method")
                 else:
                     result.append(one_result)
         except Exception as err:
@@ -88,7 +106,7 @@ class PipeExecutor:
                 try:
                     one_matrix = pipe_section[1].get_matrix()
                 except Exception as err:
-                    logging.warning("Possibly the pipe section does not have a get results")
+                    logging.warning("Possibly the pipe section does not have a 'get_matrix' method")
                 else:
                     matrix.append(one_matrix)
         except Exception as err:
@@ -102,7 +120,7 @@ class PipeExecutor:
             try:
                 one_info = pipe_section[1].get_info()
             except Exception as err:
-                logging.warning("Possibly the pipe section does not have a get info")
+                logging.warning("Possibly the pipe section does not have a 'get_info' method")
             else:
                 info[pipe_section[0]] = one_info
         return info
@@ -114,7 +132,7 @@ class PipeExecutor:
             try:
                 one_info = pipe_section[1].get_all_attributes()
             except Exception as err:
-                logging.warning("Possibly the pipe section does not have a get info")
+                logging.warning("Possibly the pipe section does not have a 'get_all_attributes' method")
             else:
                 info[pipe_section[0]] = one_info
         return info

@@ -96,19 +96,14 @@ def main():
             try:
                 loader = SOLibraryLoader(library_name)
                 
-                start_datetime = datetime.datetime.combine(start_date, start_time)
-                stop_datetime = datetime.datetime.combine(stop_date, stop_time) 
-
-                start_date_str = start_datetime.isoformat(timespec='milliseconds') + 'Z'
-                stop_date_str = stop_datetime.isoformat(timespec='milliseconds') + 'Z'
-                logger.info(f"Start date: {start_date_str}, Stop date: {stop_date_str}")
+                start_datetime = datetime.datetime.combine(start_date, start_time).isoformat(timespec='milliseconds') + 'Z'
+                stop_datetime = datetime.datetime.combine(stop_date, stop_time).isoformat(timespec='milliseconds') + 'Z'
+                logger.info(f"Start date: {start_datetime}, Stop date: {stop_datetime}")
                 
                 time_init = time.time()
-                
-                results, result_matrix = loader.testing(stop_date_str, start_date_str)
-                
+                results, result_matrix = loader.testing_predict_with_influx(start_datetime, stop_datetime)
                 time_end = time.time()
-                
+
                 time_elapsed = time_end - time_init
                 st.markdown(f"<span style='font-size: 24px;'>Time elapsed: {time_elapsed:.2f} seconds for {library_name} for {len(results)} buckets.</span>", unsafe_allow_html=True)
                 
@@ -122,7 +117,7 @@ def main():
                             for column in prediction.columns:
                                 data.append(go.Scatter(x=prediction.index, y=prediction[column], mode='lines', name=f"{bucket}-{column}"))
                         else:
-                            logger.warning(f"Unexpected prediction format for bucket {bucket}: {type(prediction)}")
+                            logger.warning(f"Unexpected prediction format for bucket '{bucket}': {type(prediction)}")
 
                     fig = go.Figure(data=data)
                     fig.update_layout(title="Testing Results", xaxis_title="Time", yaxis_title="Value")

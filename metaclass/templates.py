@@ -18,15 +18,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 class MetaFuse(ABC, BaseEstimator, TransformerMixin):
     """Metaclass to be used in data fusing
-    """
-    def __init__(self, data_sources: dict = {}) -> None:
-        """Constructor of the class
-
-        Args:
-            data_sources (dict): _description
-        """
-        self.data_sources = data_sources
-    
+    """    
     @abstractmethod
     def fit(self, X: Any, y: Any= None) -> None:
         """_summary_
@@ -59,6 +51,33 @@ class MetaFuse(ABC, BaseEstimator, TransformerMixin):
 
         Returns:
             np.ndarray: Predict
+        """
+        pass
+
+    @abstractmethod
+    def get_info(self) -> str:
+        """Get the information of the transformation and version
+
+        Returns:
+            str: Information about the transformation and version
+        """
+        pass
+    
+    @abstractmethod
+    def get_all_attributes(self):
+        """Returns all attributes of the model.
+        
+        Returns:
+            dict: A dictionary containing all attributes of the model.
+        """
+        pass
+
+    @abstractmethod
+    def get_results(self) -> Any:
+        """Get the results of the model
+
+        Returns:
+            Any: Results
         """
         pass
 

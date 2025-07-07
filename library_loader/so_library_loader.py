@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License along with thi
  
  
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
 from utils.file_utils import load_json_file
-
 
 import importlib
 from loguru import logger
@@ -25,6 +25,7 @@ import datetime
 import pytz
 import json
 import pandas as pd
+import re
 
 class SOLibraryLoader:
     def __init__(self, name: str):
@@ -36,60 +37,70 @@ class SOLibraryLoader:
         """
         self.influxdb_conn = InfluxDBConnector()
         influxdb_conn_status, influxdb_conn_client = self.influxdb_conn.connect()
+        self.postgresql_conn = PostgreSQLConnector()
+        postgresql_conn_status, postgresql_conn_client = self.postgresql_conn.connect()
         self.name = name
-        self.exec = None
         self.exec = self._load_library()
     
-    def testing(self, stop_data: str, start_data: str) -> dict:
+    def testing_predict_with_influx(self, start_datetime: str, stop_datetime: str) -> dict:
         """
-        Placeholder for a testing method that you will implement.
+        Predict new data using a library and two datetimes provided by GUI
+
+        Args:
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
         """
         results_dict = dict()
         if self.exec is not None:
-            query = self.exec.get_query()
-            # Extraemos la query
-            prediction_dict = dict()
-            composed_query_list = self._compose_query(query, stop_data, start_data)
-            for one_query in composed_query_list:
-                one_query_copy = one_query.copy()
-                query = self.influxdb_conn.compose_influx_query_from_dict(one_query_copy)
-                data = self.influxdb_conn.query(query=query, pandas=True, stream=False)
+            training_info = self.exec.get_training_info()
+            if training_info.get("influxdb"):
+                influxdb_query = self._compose_flux_query(
+                    query = training_info.get("influxdb"),
+                    start_datetime = start_datetime,
+                    stop_datetime = stop_datetime
+                )
+                prediction_dict = dict()
+                data = self.influxdb_conn.query(query=influxdb_query, pandas=True, stream=False)
                 logger.info(f"Model Info: {self.exec.get_info()}")
                 if data is not None and not data.empty:
-                    bucket = one_query.get("buckets", {}).get("bucket", "default_bucket")
-                    data.loc[:, "bucket"] = bucket
-                    # Se ejecuta la predicción para cada edificio
-                    one_prediction = self.exec.predict(data)
-                    prediction_dict[bucket] = one_prediction
-                    results_dict[bucket] = self.exec.get_results()
+                    for bucket in data["bucket"].unique():
+                        bucket_data = data[data["bucket"]==bucket].reset_index(drop=True)
+                        one_prediction = self.exec.predict(bucket_data)
+                        prediction_dict[bucket] = one_prediction
+                        results_dict[bucket] = self.exec.get_results()
         else:
             logger.error("Executor class instance is not initialized.")
         
         return prediction_dict, results_dict
-            
-    def _compose_query(self, query: str, end_time: str, start_time: str) -> str:
+    
+    def _compose_flux_query(self, query: str, start_datetime: str, stop_datetime: str) -> str:
         """
-        Composes a query string with the provided start and end times.
+        Substitutes the start and stop values in the range() function of a Flux query.
+
+        This function uses regular expressions to find and replace the numeric values
+        for 'start' and 'stop' keys within a 'range()' function call. It is robust
+        against whitespace variations.
 
         Args:
-            query (str): The base query string.
-            start_time (str): The start time in ISO format.
-            end_time (str): The end time in ISO format.
+            query (str): The original Flux query string.
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
 
         Returns:
-            str: The composed query string.
-        """
-        queries_list = list()
-        buckets_list = query.get("buckets", [])
-        bucket_query = query
-        for one_bucket in buckets_list:
-            one_bucket_query = bucket_query.copy()
-            one_bucket_query.update({"buckets": {"bucket": one_bucket}})
-            one_bucket_query.update({"range": {"start": start_time, "stop": end_time}})
-            logger.info(f"Updated bucket query: {one_bucket_query}")
-            queries_list.append(one_bucket_query)
-        return queries_list
-    
+            str: The new Flux query with the updated start and stop times.
+        """ 
+        query = re.sub(
+            pattern=r"(start\s*:\s*)\d+", 
+            repl=f'\\1time(v:"{start_datetime}")', 
+            string=query
+        )
+        query = re.sub(
+            pattern=r"(stop\s*:\s*)\d+", 
+            repl=f'\\1time(v:"{stop_datetime}")',
+            string=query
+        )
+        return query
+
     def analyze_lib(self):
         """Analyzes the loaded library and retrieves relevant information.
         """
@@ -127,29 +138,30 @@ class SOLibraryLoader:
         Checks the query and logs the result.
         """
         if self.exec is not None:
-            query = self.exec.get_query()
-            logger.info(f"Checked query: {query}")
+            query = self.exec.get_training_info()
+            logger.info(f"Checked query:\n{training_info}")
         else:
             logger.error("Executor class instance is not initialized.")
     
     def _load_library(self):
-       """
-       Loads the .so library using importlib.
-       Returns:
-           module: The loaded module, or None if loading fails.
-       """
-       module_name = f"lib.{self.name}"
-       try:
-           module = importlib.import_module(module_name)
-           ExecutorClass = getattr(module, "PipeExecutor", None)
-           executor_class_instance = ExecutorClass()
-          
-       except ImportError as e:
-           logger.error(f"Failed to load library {module_name}: {e}")
-           raise FileNotFoundError(f"Library {module_name} not found.")
-       else:
-           logger.info(f"Library {module_name} loaded successfully.")
-           logger.info(f"Executor class found: {ExecutorClass.__name__ if ExecutorClass else 'None'}")
-           logger.info(f"Library info: {ExecutorClass.__doc__}")
-           logger.info(f"Library info: {executor_class_instance.get_info()}")
-           return executor_class_instance
+        """
+        Loads the .so library using importlib.
+        Returns:
+            module: The loaded module, or None if loading fails.
+        """
+        module_name = f"lib.{self.name}"
+        executor_class_instance = None
+        try:
+            module = importlib.import_module(module_name)
+            ExecutorClass = getattr(module, "PipeExecutor", None)
+            executor_class_instance = ExecutorClass()
+        except ImportError as e:
+            logger.error(f"Failed to load library {module_name}: {e}")
+            raise FileNotFoundError(f"Library {module_name} not found.")
+        else:
+            logger.info(f"Library {module_name} loaded successfully.")
+            logger.info(f"Executor class found: {ExecutorClass.__name__ if ExecutorClass else 'None'}")
+            logger.info(f"Library info: {ExecutorClass.__doc__}")
+            logger.info(f"Library info: {executor_class_instance.get_info()}")
+        finally:
+            return executor_class_instance

@@ -10,6 +10,7 @@
 
 from typing import Any
 import numpy as np
+import pandas as pd
 from loguru import logger
 
 from metaclass.templates import MetaFuse, MetaTransform, MetaModel
@@ -41,34 +42,60 @@ class DemoFuse(MetaFuse):
         pass
 
     def get_info(self) -> str:
-        return f"{self.__class__.__name__} v.{LIBRARY_VERSION}"
+        return f"{self.__class__.__name__} v.{self.LIBRARY_VERSION}"
+    
+    def get_all_attributes(self) -> dict:
+        return self.parameters
+
+    def get_results(self) -> dict:
+        return self.results_dictionary
 
     @logger.catch
-    def fuse_data_sources(self) -> Any:
+    def fuse_data_sources(self, connections: dict, training_info: dict) -> Any:
         """Example
+
+        Args:
+            connections (dict): Dictionary with connectors and connections
+            training_info (dict): Dictionary with queries and datafiles
 
         Returns:
             Any: Example output of data fusing
         """
-        Xs = []
-        for source, data in self.data_sources.items():
-            try:
-                if source == "local":
-                    for local_source in data:
-                        source_type = local_source.split(".")[-1]
-                        if source_type == "csv":
-                            Xs.append(pd.read_csv(local_source))
-                        elif source_type == "json":
-                            Xs.append(pd.read_json(local_source))
-                        elif source_type in ["xlsx", "ods"]:
-                            Xs.append(pd.read_excel(local_source))
-                        else:
-                            logger.warning(f"Reading data from source of type '{source_type}' not implemented yet")
-                else:
-                    Xs.append(pd.DataFrame(data))
-            except Exception as err:
-                logger.warningf(f"Error converting data from source '{source}' into pd.DataFrame: {error}")
-        return pd.concat(Xs, ignore_index=True)
+        dataframe_list = []
+        for data_source, data_source_info in training_info.items():
+            if data_source == "influxdb":
+                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
+                dataframe_list.append(
+                    connections[data_source]["connector"].query(
+                        query=data_source_info, 
+                        pandas=True, 
+                        stream=False
+                    )
+                )
+                logger.info(f"✅ Query data retrieval finished for datasource '{data_source}'")
+            elif data_source == "postgresql":
+                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
+                dataframe_list.append(
+                    connections[data_source]["connector"].query_to_df(
+                        query=data_source_info
+                    )
+                )
+            elif data_source == "local":
+                for datafile in data_source_info:
+                    logger.info(f"⚙️ Retrieving data from local datafile at '{datafile}'")
+                    source_type = datafile.split(".")[-1]
+                    if source_type == "csv":
+                        dataframe_list.append(pd.read_csv(datafile))
+                    elif source_type == "json":
+                        dataframe_list.append(pd.read_json(datafile))
+                    elif source_type in ["xlsx", "ods"]:
+                        dataframe_list.append(pd.read_excel(datafile))
+                    else:
+                        logger.warning(f"⚠️ Reading data from source of type '{source_type}' not implemented yet")                
+            if len(dataframe_list) > 0:
+                total_dataframe = pd.concat(dataframe_list, ignore_index=True)  # Added ignore_index=True for better concatenation
+        return total_dataframe
+
 
 class DemoTransform(MetaTransform):
 
@@ -96,7 +123,7 @@ class DemoTransform(MetaTransform):
         pass
 
     def get_info(self) -> str:
-        return f"{self.__class__.__name__} v.{LIBRARY_VERSION}"
+        return f"{self.__class__.__name__} v.{self.LIBRARY_VERSION}"
     
     def get_all_attributes(self) -> dict:
         return self.parameters
@@ -144,7 +171,9 @@ class DemoModel(MetaModel):
         pass
     
     def predict(self, X: Any) -> np.ndarray:
-        pass
+        prediction_results = pd.DataFrame()
+        self.results_dictionary = {"demomodel_analysis": prediction_results}
+        return prediction_results
 
     def fit_predict(self, X: Any, y: Any = None) -> np.ndarray:
         pass
@@ -153,7 +182,7 @@ class DemoModel(MetaModel):
         pass
 
     def get_info(self) -> str:
-        return f"{self.__class__.__name__} v.{LIBRARY_VERSION}"
+        return f"{self.__class__.__name__} v.{self.LIBRARY_VERSION}"
     
     def get_all_attributes(self) -> dict:
         return self.parameters

@@ -72,14 +72,14 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
         dictionary: A fit pipe in a dictionary with the following keys 
         - pipe_name: Name of the pipe
         - pipe: The fitted pipe object
-        - training_query: The query used for training
+        - training_info: The queries and files used for training
         - date: The date and time of fitting
     """
     timi_i = time.time()
     logger.info(f"⚙️ Starting fitting process for pipe_core:\n{pipe_core}")
     try:
         pipe = pipe_core["pipe"]
-        query = pipe_core["training_query"]
+        training_info = pipe_core["training_info"]
         name = pipe_core["name"]
         try:
             logger.info("⚙️ Starting fitting process")
@@ -97,7 +97,7 @@ def lab_fit(data: pd.DataFrame, pipe_core: dict, fit_and_predict: bool = False):
     training_pipe = {
         "pipe_name": name, 
         "pipe": pipe, 
-        "training_query": query,  
+        "training_info": training_info,  
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     logger.info(f"✅ Pipe fitting process finished successfully for task '{pipe_core}' in {time.time() - timi_i}")

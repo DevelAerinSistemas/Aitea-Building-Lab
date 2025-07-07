@@ -119,64 +119,67 @@ class PipelineManager(object):
         return Pipeline(pipe_parts)
 
     @logger.catch
-    def create_pipeline_training_queries(self, pipe_details: dict, pipe: Pipeline) -> dict:
-        """Create pipeline training query
+    def create_pipeline_training_info(self, pipe_details: dict, pipe: Pipeline) -> dict:
+        """Create pipeline training info
         Args:
             pipe_details (dict): pipe details
             pipe (Pipeline): pipeline
 
         Returns:
-            dict: pipeline training queries
+            dict: pipeline training info
         """
-        pipeline_training_queries = {}
-        for data_source, data_source_query in pipe_details.get("data_sources",{}).items():
+        pipeline_training_info = {}
+        for data_source, data_source_info in pipe_details.get("data_sources",{}).items():
             if data_source not in self.connections:
                 logger.warning(f"⚠️ Datasource of type '{data_source}' is not implemented yet")
                 continue
             if data_source == "influxdb":
                 query = ""
-                if isinstance(data_source_query, list):
-                    query = "\n|> ".join(data_source_query).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
-                elif isinstance(data_source_query, dict):
-                    data_source_query["buckets"] = self.get_valid_buckets(data_source_query.get("buckets"))
-                    if len(data_source_query["buckets"]) > 1:
+                if isinstance(data_source_info, list):
+                    query = "\n|> ".join(data_source_info).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
+                elif isinstance(data_source_info, dict):
+                    data_source_info["buckets"] = self.get_valid_buckets(data_source_info.get("buckets"))
+                    if len(data_source_info["buckets"]) > 1:
                         subqueries = []
-                        for bucket in data_source_query["buckets"]:
-                            query_params = {k:v for k,v in data_source_query.items() if k!="buckets"}
+                        for bucket in data_source_info["buckets"]:
+                            query_params = {k:v for k,v in data_source_info.items() if k!="buckets"}
                             query_params["bucket"] = bucket
-                            subqueries.append(f"{bucket} = {self.connections[data_source]['connector'].compose_influx_query_from_dict(query_params)}")
-                        query = "\n".join(subqueries+[f"union(tables:[{','.join(data_source_query['buckets'])}])"])
+                            subquery = f"{bucket} = {self.connections[data_source]['connector'].compose_influx_query_from_dict(query_params)}"
+                            subquery += f'\n|> map(fn: (r) => ({{ r with bucket: "{bucket}" }}))'
+                            subqueries.append()
+                        query = "\n".join(subqueries+[f"union(tables:[{','.join(data_source_info['buckets'])}])"])
                     else:
-                        query_params = {k:v for k,v in data_source_query.items() if k!="buckets"}
-                        query_params["bucket"] = data_source_query["buckets"][0]
+                        query_params = {k:v for k,v in data_source_info.items() if k!="buckets"}
+                        query_params["bucket"] = data_source_info["buckets"][0]
                         query = self.connections[data_source]['connector'].compose_influx_query_from_dict(query_params)
-                elif isinstance(data_source_query, str):
-                    query = data_source_query
+                        query += f'\n|> map(fn: (r) => ({{ r with bucket: "{query_params["bucket"]}" }}))'
+                elif isinstance(data_source_info, str):
+                    query = data_source_info
                 else:
-                    logger.critical(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list', 'dict' or 'str' allowed.")
+                    logger.critical(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_info)}' is not allowed. Only 'list', 'dict' or 'str' allowed.")
                     exit(1)
-            if data_source == "postgresql":
+            elif data_source == "postgresql":
                 query = ""
-                if isinstance(data_source_query, list):
-                    query = "\n".join(data_source_query).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
-                elif isinstance(data_source_query, str):
-                    query = data_source_query
+                if isinstance(data_source_info, list):
+                    query = "\n".join(data_source_info).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
+                elif isinstance(data_source_info, str):
+                    query = data_source_info
                 else:
-                    logger.critial(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list' or 'str' allowed.")
+                    logger.critial(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_info)}' is not allowed. Only 'list' or 'str' allowed.")
                     exit(1)
-            if data_source == "local":
+            elif data_source == "local":
                 query = []
-                if isinstance(data_source_query, list):
+                if isinstance(data_source_info, list):
                     for folder in self.connections[data_source]:
-                        for file in data_source_query:
+                        for file in data_source_info:
                             filepath = os.path.join(folder,file)
                             if os.path.exists(filepath):
                                 query.append(filepath)
                 else:
-                    logger.critial(f"❌ Definition of files for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'str' allowed.")
+                    logger.critial(f"❌ Definition of files for data source '{data_source}' using type '{type(data_source_info)}' is not allowed. Only 'str' allowed.")
                     exit(1)
-            pipeline_training_queries[data_source] = query
-        return pipeline_training_queries
+            pipeline_training_info[data_source] = query
+        return pipeline_training_info
 
     @logger.catch
     def create_pipelines(self) -> dict:
@@ -187,10 +190,10 @@ class PipelineManager(object):
         pipelines = {}
         for pipe_name, pipe_details in self.pipeline_config.items():
             pipe = self.create_one_pipeline(pipe_details.get("steps",{}))
-            pipe_training_queries = self.create_pipeline_training_queries(pipe_details, pipe)
+            pipe_training_info = self.create_pipeline_training_info(pipe_details, pipe)
             pipelines[pipe_name] = {
                 "pipe": pipe, 
-                "training_query": pipe_training_queries, 
+                "training_info": pipe_training_info, 
                 # "freq_info": pipe_details.get("freq_info"),
             }
         logger.info(f"✅ Pipelines created successfully")
@@ -241,49 +244,32 @@ class PipelineExecutor(PipelineManager):
         self.save_in_joblib = save_in_joblib
         
     @logger.catch
-    def data_preparation(self, training_query_dict: dict) -> pd.DataFrame:
+    def data_preparation(self, pipeline: Pipeline, training_info: dict) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
 
         Args:
-            training_query_dict (dict): Pipeline data containing the query
+            pipeline (Pipeline): Pipeline
+            training_info (dict): Pipeline data containing the queries and data origins
 
         Returns:
             pd.DataFrame: Data to fit the pipe
         """
-        dataframe_list = []
-        for data_source, data_source_query in training_query_dict.items():
-            if data_source == "influxdb":
-                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
-                dataframe_list.append(
-                    self.connections[data_source]["connector"].query(
-                        query=data_source_query, 
-                        pandas=True, 
-                        stream=False
+        data = None
+        try:
+            for step_name, step_instance in pipeline.named_steps.items():
+                if "MetaFuse" in [step_instance_parent.__name__ for step_instance_parent in step_instance.__class__.__bases__]:
+                    data = step_instance.fuse_data_sources(
+                        connections = self.connections,
+                        training_info = training_info
                     )
-                )
-                logger.info(f"✅ Query data retrieval finished for datasource '{data_source}'")
-            elif data_source == "postgresql":
-                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
-                dataframe_list.append(
-                    self.connections[data_source]["connector"].query_to_df(
-                        query=data_source_query
-                    )
-                )
-            elif data_source == "local":
-                for datafile in data_source_query:
-                    logger.info(f"⚙️ Retrieving data from local datafile at '{datafile}'")
-                    source_type = datafile.split(".")[-1]
-                    if source_type == "csv":
-                        dataframe_list.append(pd.read_csv(datafile))
-                    elif source_type == "json":
-                        dataframe_list.append(pd.read_json(datafile))
-                    elif source_type in ["xlsx", "ods"]:
-                        dataframe_list.append(pd.read_excel(datafile))
-                    else:
-                        logger.warning(f"⚠️ Reading data from source of type '{source_type}' not implemented yet")                
-            if len(dataframe_list) > 0:
-                total_dataframe = pd.concat(dataframe_list, ignore_index=True)  # Added ignore_index=True for better concatenation
-        return total_dataframe
+        except Exception as err:
+            logging.warning(f"Error preparing data for pipeline {pipeline}: {err}")
+        else:
+            if data is None:
+                logger.warning("Training data is not available")
+        finally:
+            return data
+        
 
     @logger.catch
     def pipes_executor(self, testing: bool = False):
@@ -295,7 +281,10 @@ class PipelineExecutor(PipelineManager):
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipelines.items():
                 logger.info(f"⚙️ Starting pipeline task '{pipe_name}'")
-                data = self.data_preparation(pipe_info.get("training_query",{}))
+                data = self.data_preparation(
+                    pipeline = pipe_info.get("pipe"),
+                    training_info = pipe_info.get("training_info",{})
+                )
                 if data is None:
                     logger.warning("⚠️ Empty data, can't do training")
                     continue
@@ -303,7 +292,7 @@ class PipelineExecutor(PipelineManager):
                     pipe_core = {
                         "name": pipe_name, 
                         "pipe": pipe_info.get("pipe"), 
-                        "training_query": pipe_info.get("training_query")
+                        "training_info": pipe_info.get("training_info")
                     }
                     pool.apply_async(
                         lab_fit, 
