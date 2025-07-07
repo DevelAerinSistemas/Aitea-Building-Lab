@@ -23,7 +23,7 @@ import os
 from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
 from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
 
-from utils.pipe_utils import read_json_schedule_plan, lab_fit, pipe_save
+from utils.pipe_utils import read_json_schedule_plan, pipe_save, lab_fit
 from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
 from utils.so_utils import create_so
@@ -31,7 +31,6 @@ from exceptions.fit_exception import InsufficientDataError
 
 
 logger = get_logger()
-
 
 load_dotenv()
 
@@ -46,13 +45,14 @@ class PipelineManager(object):
         """
         global_config_path = os.getenv("CONFIG_PATH")
 
-        self.global_config = load_json_file(config_path)
+        self.global_config = load_json_file(global_config_path)
         if self.global_config is None:
             logger.error(f"❌ Error loading global configuration, {self.__class__.__name__} could not be instantiated successfully")
         else:
             self.connections = self.create_connections()
 
         self.pipeline_config = read_json_schedule_plan(pipeline_config_file)
+        logger.info(f"📢 Valid pipeline schedule configuration loaded successfully from '{pipeline_config_file}'")
         if self.pipeline_config is None:
             logger.error(f"❌ Error loading pipeline configuration, {self.__class__.__name__} could not be instantiated successfully")
         else:
@@ -65,11 +65,11 @@ class PipelineManager(object):
             dict: connections
         """
         connections = {}
-        for conn_name, conn_values in self.global_config.get("data_sources").items():
+        for conn_name in self.global_config.get("data_sources"):
             if conn_name == "local":
                 connections[conn_name] = []
-                for folder in conn_values:
-                    if os.path.exist(folder):
+                for folder in self.global_config.get(conn_name):
+                    if os.path.exists(folder):
                         connections[conn_name].append(folder)
                     else:
                         logger.warning(f"⚠️ Folder '{folder}' for training files does not exixt")
@@ -119,35 +119,46 @@ class PipelineManager(object):
         return Pipeline(pipe_parts)
 
     @logger.catch
-    def create_pipeline_datasources(self, pipe_details: dict) -> dict:
-        """Create pipeline datasources
+    def create_pipeline_training_queries(self, pipe_details: dict, pipe: Pipeline) -> dict:
+        """Create pipeline training query
         Args:
             pipe_details (dict): pipe details
+            pipe (Pipeline): pipeline
 
         Returns:
-            dict: pipeline datasources
+            dict: pipeline training queries
         """
-        pipeline_datasources = {}
-        for data_source, data_source_query in pipe_details.get("steps",{}):
+        pipeline_training_queries = {}
+        for data_source, data_source_query in pipe_details.get("data_sources",{}).items():
             if data_source not in self.connections:
-                logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
+                logger.warning(f"⚠️ Datasource of type '{data_source}' is not implemented yet")
                 continue
             if data_source == "influxdb":
                 query = ""
                 if isinstance(data_source_query, list):
-                    query = "\n |> ".join(data_source_query).format(pipe.steps[0][1].get(**data_source,{}))
+                    query = "\n|> ".join(data_source_query).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
                 elif isinstance(data_source_query, dict):
                     data_source_query["buckets"] = self.get_valid_buckets(data_source_query.get("buckets"))
-                    query = self.connections[data_source].compose_influx_query_from_dict(data_source_query)
+                    if len(data_source_query["buckets"]) > 1:
+                        subqueries = []
+                        for bucket in data_source_query["buckets"]:
+                            query_params = {k:v for k,v in data_source_query.items() if k!="buckets"}
+                            query_params["bucket"] = bucket
+                            subqueries.append(f"{bucket} = {self.connections[data_source]['connector'].compose_influx_query_from_dict(query_params)}")
+                        query = "\n".join(subqueries+[f"union(tables:[{','.join(data_source_query['buckets'])}])"])
+                    else:
+                        query_params = {k:v for k,v in data_source_query.items() if k!="buckets"}
+                        query_params["bucket"] = data_source_query["buckets"][0]
+                        query = self.connections[data_source]['connector'].compose_influx_query_from_dict(query_params)
                 elif isinstance(data_source_query, str):
                     query = data_source_query
                 else:
-                    logger.critial(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list', 'dict' or 'str' allowed.")
+                    logger.critical(f"❌ Definition of query for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'list', 'dict' or 'str' allowed.")
                     exit(1)
             if data_source == "postgresql":
                 query = ""
                 if isinstance(data_source_query, list):
-                    query = "\n".join(data_source_query).format(pipe.steps[0][1].get(**data_source,{}))
+                    query = "\n".join(data_source_query).format(**pipe_details.get("steps",{}).get(pipe.steps[0][0],{}).get(data_source,{}))
                 elif isinstance(data_source_query, str):
                     query = data_source_query
                 else:
@@ -164,8 +175,8 @@ class PipelineManager(object):
                 else:
                     logger.critial(f"❌ Definition of files for data source '{data_source}' using type '{type(data_source_query)}' is not allowed. Only 'str' allowed.")
                     exit(1)
-            pipeline_datasources[data_source] = query
-        return pipeline_datasources
+            pipeline_training_queries[data_source] = query
+        return pipeline_training_queries
 
     @logger.catch
     def create_pipelines(self) -> dict:
@@ -173,14 +184,16 @@ class PipelineManager(object):
         Returns:
             dict:pipelines
         """
-        pipelines = {
-            pipe_name: {
-                "pipe": self.create_one_pipeline(pipe_details.get("steps",{})), 
-                "training_query": self.create_pipeline_datasources(pipe_details), 
-                "freq_info": pipe_details.get("freq_info"),
+        pipelines = {}
+        for pipe_name, pipe_details in self.pipeline_config.items():
+            pipe = self.create_one_pipeline(pipe_details.get("steps",{}))
+            pipe_training_queries = self.create_pipeline_training_queries(pipe_details, pipe)
+            pipelines[pipe_name] = {
+                "pipe": pipe, 
+                "training_query": pipe_training_queries, 
+                # "freq_info": pipe_details.get("freq_info"),
             }
-            for pipe_name, pipe_details in self.pipeline_config.items()
-        }
+        logger.info(f"✅ Pipelines created successfully")
         return pipelines  
 
     @logger.catch
@@ -227,50 +240,47 @@ class PipelineExecutor(PipelineManager):
         self.generate_so = generate_so
         self.save_in_joblib = save_in_joblib
         
-        for name, pipes_data in self.pipelines.items():
-            pipes_data["connection"] = influxdb_conn
-        
     @logger.catch
-    def data_preparation(self, pipe_data: dict) -> pd.DataFrame:
+    def data_preparation(self, training_query_dict: dict) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
 
         Args:
-            pipe_data (dict): Pipeline data containing the query
+            training_query_dict (dict): Pipeline data containing the query
 
         Returns:
             pd.DataFrame: Data to fit the pipe
         """
-        training_query = copy.deepcopy(pipe_data.get("training_query"))
-        buckets = training_query.get("buckets")
-        influxdb_conn = pipe_data.get("connection")
-        query_params = pipe_data.get("query_params")
-        dataframe_list = list()
-        total_dataframe = None
-        if isinstance(buckets, list):
-            for bucket in buckets:
-                logger.info(f"⚙️ Starting query generation for bucket '{bucket}'")
-                query_dict = {"bucket":bucket}
-                for k,v in training_query.items():
-                    if k!="buckets":
-                        query_dict[k] = v
-                query = influxdb_conn.compose_influx_query_from_dict(query_dict)
-                query_parts = training_query.get("query_parts",[])
-                if query_parts:
-                    query_parts.insert(0,query.split("\n")[1])
-                    logger.info(f"💬 Query parts available: {query_parts}")
-                    logger.info(f"💬 Using query_params: {query_params}")
-                    query = "\n  |>".join(query_parts).format(**query_params)
-                logger.info(f"⚙️ Retrieving data from InfluxDB using query:\n{query}")
-                stream_data = influxdb_conn.query(
-                    query=query, 
-                    pandas=True, 
-                    stream=False
+        dataframe_list = []
+        for data_source, data_source_query in training_query_dict.items():
+            if data_source == "influxdb":
+                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
+                dataframe_list.append(
+                    self.connections[data_source]["connector"].query(
+                        query=data_source_query, 
+                        pandas=True, 
+                        stream=False
+                    )
                 )
-                if stream_data is None:
-                    continue
-                logger.info(f"✅ Query data retrieval finished for bucket '{bucket}'")
-                stream_data["bucket"] = bucket
-                dataframe_list.append(stream_data)
+                logger.info(f"✅ Query data retrieval finished for datasource '{data_source}'")
+            elif data_source == "postgresql":
+                logger.info(f"⚙️ Retrieving data from datasource '{data_source}'")
+                dataframe_list.append(
+                    self.connections[data_source]["connector"].query_to_df(
+                        query=data_source_query
+                    )
+                )
+            elif data_source == "local":
+                for datafile in data_source_query:
+                    logger.info(f"⚙️ Retrieving data from local datafile at '{datafile}'")
+                    source_type = datafile.split(".")[-1]
+                    if source_type == "csv":
+                        dataframe_list.append(pd.read_csv(datafile))
+                    elif source_type == "json":
+                        dataframe_list.append(pd.read_json(datafile))
+                    elif source_type in ["xlsx", "ods"]:
+                        dataframe_list.append(pd.read_excel(datafile))
+                    else:
+                        logger.warning(f"⚠️ Reading data from source of type '{source_type}' not implemented yet")                
             if len(dataframe_list) > 0:
                 total_dataframe = pd.concat(dataframe_list, ignore_index=True)  # Added ignore_index=True for better concatenation
         return total_dataframe
@@ -284,8 +294,8 @@ class PipelineExecutor(PipelineManager):
         """
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipelines.items():
-                logger.info(f"⚙️ Getting data from InfluxDB to perform task '{pipe_name}'")
-                data = self.data_preparation(pipe_info)
+                logger.info(f"⚙️ Starting pipeline task '{pipe_name}'")
+                data = self.data_preparation(pipe_info.get("training_query",{}))
                 if data is None:
                     logger.warning("⚠️ Empty data, can't do training")
                     continue
@@ -301,7 +311,7 @@ class PipelineExecutor(PipelineManager):
                         callback=self.task_handler,
                         error_callback=self.error_handler
                         )
-                    logger.info(f"⚙️ Geting fit to {pipe_name}")
+                    logger.info(f"⚙️ Fitting pipeline task '{pipe_name}'")
             pool.close()
             pool.join()
 
@@ -318,7 +328,7 @@ class PipelineExecutor(PipelineManager):
             logger.critical(f"❌ The pipe is malformed, keys are missing")
         else:
             training_file = pipe_save(result, self.save_in_joblib)
-            logger.success(f"✅ End pipe fit. It is saved {training_file}")
+            logger.success(f"✅ Pipe fitting successfully finished and stored in '{training_file}'")
             if self.generate_so:
                 logger.info("⚙️ Creating shared object")
                 self.launch_create_so(training_file)
@@ -340,5 +350,4 @@ class PipelineExecutor(PipelineManager):
             model_path (str): Path to the model file.
         """
         create_so(model_path=model_path)
-        logger.success(f"✅ Shared object created at {model_path}")
-
+        logger.success(f"✅ Shared object created and stored in '{model_path}'")

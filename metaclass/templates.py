@@ -16,7 +16,7 @@ from loguru import logger
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
-class MetaFusion(ABC):
+class MetaFuse(ABC, BaseEstimator, TransformerMixin):
     """Metaclass to be used in data fusing
     """
     def __init__(self, data_sources: dict = {}) -> None:
@@ -26,6 +26,41 @@ class MetaFusion(ABC):
             data_sources (dict): _description
         """
         self.data_sources = data_sources
+    
+    @abstractmethod
+    def fit(self, X: Any, y: Any= None) -> None:
+        """_summary_
+
+        Args:
+            X (Any): _description_
+            y (Any, optional): _description_. Defaults to None.
+        """
+        pass
+
+    @abstractmethod
+    def transform(self, X: Any) -> Any:
+        """Transform the data
+
+        Args:
+            X (Any): Pandas o numpy with data to transform
+        
+        Returns:
+            np.ndarray: Transformed data
+        """
+        pass
+    
+    @abstractmethod
+    def fit_transform(self, X: Any, y: Any) -> Any:
+        """First training is done and then a transformation
+
+        Args:
+            X (Any):Pandas o numpy with data to predict
+            y (Any): Pandas o numpy with training data
+
+        Returns:
+            np.ndarray: Predict
+        """
+        pass
 
     @abstractmethod
     def fuse_data_sources(self) -> Any:

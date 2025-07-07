@@ -31,6 +31,18 @@ class DemoFuse(MetaFuse):
     
     # ABSTRACT METHODS
     
+    def fit(self, X: Any, y: Any = None) -> None:
+        pass
+    
+    def transform(self, X: Any) -> np.ndarray:
+        pass
+    
+    def fit_transform(self, X: Any, y: Any = None) -> np.ndarray:
+        pass
+
+    def get_info(self) -> str:
+        return f"{self.__class__.__name__} v.{LIBRARY_VERSION}"
+
     @logger.catch
     def fuse_data_sources(self) -> Any:
         """Example

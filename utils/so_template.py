@@ -55,7 +55,6 @@ class PipeExecutor:
             logging.info("Predict and partial fit executed successfully")
         return returned 
         
-        
     def get_results(self) -> pd.DataFrame:
         result = list()
         pipe_core = self.pipe.get("pipe")

@@ -299,10 +299,10 @@ if __name__ == "__main__":
         demo_pipe_plan = load_json_file(demo_pipe_plan_path).get("demo")
 
         postgresql_query_params = demo_pipe_plan.get("steps").get("demo.DemoFuse").get("postgresql")
-        demo_pipe_plan_postgresql_query = "\n".join(demo_pipe_plan.get("postgresql").get("query_parts")).format(**postgresql_query_params)
+        demo_pipe_plan_postgresql_query = "\n".join(demo_pipe_plan.get("data_sources").get("postgresql")).format(**postgresql_query_params)
 
-        demo_pipe_plan_influx_query = demo_pipe_plan.get("influxdb").get("training_query")
-        demo_pipe_plan_influx_query["bucket"] = demo_pipe_plan_influx_query["buckets"][0]
+        demo_pipe_plan_influx_query = demo_pipe_plan.get("data_sources").get("influxdb")
+        demo_pipe_plan_influx_query["bucket"] = demo_pipe_plan_influx_query.get("buckets")[0]
         del demo_pipe_plan_influx_query["buckets"]
 
         logger.success(f"Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
@@ -311,6 +311,7 @@ if __name__ == "__main__":
         path = demo_conf.get("data").get("path")
         generate_demo_data(demo_conf.get("data"))
         demo_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
+        demo_df.to_csv(os.path.join("training_files","demo_data.csv"), index=False)
         logger.success(f"Demo data correctly generated. Sneak peek:\n{demo_df.head()}")
 
         # Uploading demo data to InfluxDB
