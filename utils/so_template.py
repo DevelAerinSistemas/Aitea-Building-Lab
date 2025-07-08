@@ -40,7 +40,7 @@ class PipeExecutor:
             get_matrix(): Extracts and returns data matrices from the pipeline's steps.
             get_pipe_info(): Returns information about the pipeline's structure and components.
     '''
-    def __init__(self, connections_path: str = ""):
+    def __init__(self, connections_path: str):
         self.pipe = pipeline
         if os.path.exists(connections_path):
             os.environ["CONNECTIONS_PATH"] = connections_path
