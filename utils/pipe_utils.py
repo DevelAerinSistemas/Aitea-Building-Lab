@@ -8,14 +8,13 @@
  # @ Copyright (c) 2024: Departamento de I+D. Aitea Tech
  '''
 
-import json
-import time
 from loguru import logger
-import pandas as pd
-from datetime import datetime
 import joblib
 import dill
-
+import json
+import time
+from datetime import datetime
+import pandas as pd
 
 
 def read_json_schedule_plan(path: str) -> dict:

@@ -158,7 +158,6 @@ def main():
         except Exception as e:
             logger.error(f"Error loading library info: {e}")
             st.error(f"Error loading library info: {e}")
-
     st.markdown("---")
 
     # Data Source Selection
@@ -169,8 +168,8 @@ def main():
         horizontal=True
     )
     selected_file = None # Initialize variable
-
     if data_source == "local":
+        # File selection
         local_files = get_local_files()
         if not local_files:
             st.warning(f"No data files found in the '{DATA_DIRS}' directories. Please add some files (e.g., .csv, .parquet).")
@@ -204,29 +203,24 @@ def main():
         if not library_name:
             st.warning("Please select a library first.")
             return
-
         try:
             loader = SOLibraryLoader(library_name)
             time_init = time.time()
             results, result_matrix = None, None
-
-            if data_source == "influxdb":
+            if data_source != "local":
                 start_datetime = datetime.datetime.combine(start_date, start_time).isoformat(timespec='milliseconds') + 'Z'
                 stop_datetime = datetime.datetime.combine(stop_date, stop_time).isoformat(timespec='milliseconds') + 'Z'
-                logger.info(f"Executing with InfluxDB from {start_datetime} to {stop_datetime}")
-                results, result_matrix = loader.testing_predict_with_influx(start_datetime, stop_datetime)
-            elif data_source == "postgresql":
-                start_datetime = datetime.datetime.combine(start_date, start_time).isoformat(timespec='milliseconds') + 'Z'
-                stop_datetime = datetime.datetime.combine(stop_date, stop_time).isoformat(timespec='milliseconds') + 'Z'
-                logger.info(f"Executing with PostgreSQL from {start_datetime} to {stop_datetime}")
-                results, result_matrix = loader.testing_predict_with_postgresql(start_datetime, stop_datetime)
-            else: # data_source == "local"
+                logger.info(f"Executing with {data_source} from {start_datetime} to {stop_datetime}")
+                if data_source == "influxdb":
+                    results, result_matrix = loader.testing_predict_with_influx(start_datetime, stop_datetime)
+                elif data_source == "postgresql":
+                    results, result_matrix = loader.testing_predict_with_postgresql(start_datetime, stop_datetime)
+            else:
                 if not selected_file:
                     st.warning("Please select a local file to test.")
                     return
                 logger.info(f"Executing with local file: '{selected_file}'")
                 results, result_matrix = loader.testing_predict_with_file(selected_file)
-
             time_end = time.time()
             time_elapsed = time_end - time_init
             if results is not None:
