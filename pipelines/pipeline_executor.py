@@ -20,8 +20,13 @@ import subprocess
 from dotenv import load_dotenv
 import os
 
-from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
-from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+try:
+    from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+    from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+    AITEA_CONNECTORS = True
+except ImportError:
+    logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
+    AITEA_CONNECTORS = False
 
 from utils.pipe_utils import read_json_schedule_plan, pipe_save, lab_fit
 from utils.file_utils import load_json_file
@@ -73,14 +78,17 @@ class PipelineManager(object):
                         connections[conn_name].append(folder)
                     else:
                         logger.warning(f"⚠️ Folder '{folder}' for training files does not exixt")
-            elif conn_name == "influxdb":
-                connections[conn_name] = {"connector": InfluxDBConnector()}
-                connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
-            elif conn_name == "postgresql":
-                connections[conn_name] = {"connector": PostgreSQLConnector()}
-                connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+            elif AITEA_CONNECTORS:
+                if conn_name == "influxdb":
+                    connections[conn_name] = {"connector": InfluxDBConnector()}
+                    connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+                elif conn_name == "postgresql":
+                    connections[conn_name] = {"connector": PostgreSQLConnector()}
+                    connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+                else:
+                    logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
             else:
-                logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
+                logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet (either locally or using AITEA_CONNECTORS)")
         return connections
 
     @logger.catch

@@ -54,5 +54,9 @@
     "local": [
         "training_files"
     ],
+    "predicting_paths": [
+        "predicting_files"
+    ],
+    "lib_path": "lib",
     "pipe_plan_path": "pipes_schedules/pipe_plan.json"
 }
