@@ -9,10 +9,14 @@
  '''
 
 from dotenv import load_dotenv
+load_dotenv()
 import os
 
-from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
+logger = get_logger()
+from utils.file_utils import load_json_file
+
+from pipelines.pipeline_executor import PipelineExecutor
 
 try:
     from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -22,16 +26,12 @@ except ImportError:
     logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
     AITEA_CONNECTORS = False
 
-from pipelines.pipeline_executor import PipelineExecutor
-
 import pandas as pd
 import numpy as np
 import csv
 import datetime
 import random
 
-
-logger = get_logger()
 
 @logger.catch
 def generate_demo_data(parameters:dict) -> None :
@@ -69,7 +69,7 @@ def generate_demo_data(parameters:dict) -> None :
 
     """
 
-    logger.info(f"Creating testing data for InfluxDB using configuration:\n{parameters}")
+    logger.info(f"⚙️ Creating testing data for InfluxDB using configuration:\n{parameters}")
 
     path = parameters.get("path")
     measurement_column = parameters.get("measurement_column")
@@ -299,7 +299,6 @@ if __name__ == "__main__":
         logger.info("🚀 Aitea Building Lab Demo test launched!")
 
         # Configuration
-        load_dotenv()
         demo_conf = load_json_file("config/demo.json")
         demo_pipe_plan_path = demo_conf.get("pipe_plan_path")
         demo_pipe_plan = load_json_file(demo_pipe_plan_path).get("demo")

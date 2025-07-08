@@ -15,12 +15,19 @@ You should have received a copy of the GNU General Public License along with thi
  '''
  
 import importlib
-from loguru import logger
 import datetime
 import pytz
 import json
-import pandas as pd
 import re
+import pandas as pd
+
+from dotenv import load_dotenv
+load_dotenv()
+import os
+
+from utils.logger_config import get_logger
+logger = get_logger()
+from utils.file_utils import load_json_file
 
 try:
     from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -29,8 +36,6 @@ try:
 except ImportError:
     logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
     AITEA_CONNECTORS = False
-
-from utils.file_utils import load_json_file
 
 class SOLibraryLoader:
     def __init__(self, name: str):

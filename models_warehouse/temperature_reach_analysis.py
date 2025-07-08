@@ -8,7 +8,8 @@
  # @ Copyright (c) 2024: Departamento de I+D. Aitea Tech
  '''
 
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 import inspect
 
 import numpy as np

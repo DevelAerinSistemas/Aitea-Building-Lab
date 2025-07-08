@@ -14,11 +14,19 @@ import multiprocessing
 import copy
 from typing import Any
 import importlib
-from loguru import logger
 import pandas as pd
 import subprocess
+
 from dotenv import load_dotenv
+load_dotenv()
 import os
+
+from utils.logger_config import get_logger
+logger = get_logger()
+from utils.pipe_utils import read_json_schedule_plan, pipe_save, lab_fit
+from utils.file_utils import load_json_file
+from utils.so_utils import create_so
+from exceptions.fit_exception import InsufficientDataError
 
 try:
     from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -27,17 +35,6 @@ try:
 except ImportError:
     logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
     AITEA_CONNECTORS = False
-
-from utils.pipe_utils import read_json_schedule_plan, pipe_save, lab_fit
-from utils.file_utils import load_json_file
-from utils.logger_config import get_logger
-from utils.so_utils import create_so
-from exceptions.fit_exception import InsufficientDataError
-
-
-logger = get_logger()
-
-load_dotenv()
 
 class PipelineManager(object):
 

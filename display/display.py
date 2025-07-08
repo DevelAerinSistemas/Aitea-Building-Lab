@@ -14,11 +14,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
 '''
 
-from loguru import logger
-
 from dotenv import load_dotenv
 load_dotenv()
-
 import os
 import sys
 # Geting the absolute path of the directory containing display.py (i.e., display/)
@@ -29,8 +26,10 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from utils.file_utils import load_json_file
+from utils.logger_config import get_logger
+logger = get_logger()
 # Getting global configuration
+from utils.file_utils import load_json_file
 global_config = load_json_file(os.getenv("CONFIG_PATH"))
 LIB_DIR = os.path.join(project_root, global_config.get("lib_path"))
 DATA_DIRS = [

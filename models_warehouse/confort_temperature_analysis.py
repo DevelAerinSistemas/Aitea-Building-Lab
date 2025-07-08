@@ -9,7 +9,8 @@
  '''
 
 
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 from typing import Any
 import pandas as pd
 import numpy as np

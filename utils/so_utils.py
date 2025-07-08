@@ -15,7 +15,8 @@ You should have received a copy of the GNU General Public License along with thi
 
 import base64
 import subprocess
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 
 @logger.catch
 def create_so(

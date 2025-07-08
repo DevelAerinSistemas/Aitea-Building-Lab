@@ -11,7 +11,8 @@
 from typing import Any
 import numpy as np
 import pandas as pd
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 
 from metaclass.templates import MetaFuse, MetaTransform, MetaModel
 import datetime

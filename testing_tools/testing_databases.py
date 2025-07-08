@@ -9,6 +9,8 @@
  '''
 
 from utils.logger_config import get_logger
+logger = get_logger()
+
 try:
     from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
     from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
@@ -16,8 +18,6 @@ try:
 except ImportError:
     logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
     AITEA_CONNECTORS = False
-
-logger = get_logger()
 
 @logger.catch()
 def influx_query_test(query: str) -> object:

@@ -14,7 +14,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
  '''
  
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 import pandas as pd
 
 from tdigest import TDigest

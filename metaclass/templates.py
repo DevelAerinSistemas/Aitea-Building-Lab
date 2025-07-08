@@ -11,7 +11,8 @@
 from typing import Any
 import numpy as np
 from abc import ABC, abstractmethod
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 
 from sklearn.base import BaseEstimator, TransformerMixin
 

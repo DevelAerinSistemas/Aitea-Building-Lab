@@ -15,7 +15,8 @@ You should have received a copy of the GNU General Public License along with thi
  '''
 
 
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 import pandas as pd
 from pythermalcomfort.models import pmv_ppd_iso
 
