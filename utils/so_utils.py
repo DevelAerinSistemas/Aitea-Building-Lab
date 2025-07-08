@@ -32,7 +32,12 @@ def create_so(
     from dotenv import load_dotenv
     import os
     load_dotenv()
+    from utils.file_utils import load_json_file
     python_env = os.getenv("PYTHON_ENV")
+    global_config = load_json_file(os.getenv("CONFIG_PATH"))
+    models_path = global_config.get("models_path")
+    libs_path = global_config.get("libs_path")
+
 
     with open(model_path, "rb") as f:
         pipe_data = f.read()
@@ -49,11 +54,11 @@ def create_so(
     command = [
         f"{python_env}/bin/nuitka",
         "--module", name_py,
-        "--include-package=models_warehouse",
+        f"--include-package={models_path}",
         "--include-package=metaclass",
         "--include-package=utils",
         "--show-modules",
-        "--output-dir=lib",
+        f"--output-dir={libs_path}",
         "--remove-output"
     ]
     try:

@@ -57,6 +57,7 @@
     "predicting_paths": [
         "predicting_files"
     ],
-    "lib_path": "lib",
+    "libs_path": "lib",
+    "models_path": "models_warehouse",
     "pipe_plan_path": "pipes_schedules/pipe_plan.json"
 }

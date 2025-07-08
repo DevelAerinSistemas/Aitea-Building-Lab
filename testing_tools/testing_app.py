@@ -13,6 +13,7 @@ import os
 
 from utils.file_utils import load_json_file
 from utils.logger_config import get_logger
+logger = get_logger()
 
 try:
     from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
@@ -30,7 +31,6 @@ if __name__ == "__main__":
 
     try:
         # Setting logger
-        logger = get_logger()
         logger.info("🚀 Aitea Building Lab General test launched!")
 
         # Configuration

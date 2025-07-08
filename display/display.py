@@ -31,7 +31,7 @@ logger = get_logger()
 # Getting global configuration
 from utils.file_utils import load_json_file
 global_config = load_json_file(os.getenv("CONFIG_PATH"))
-LIB_DIR = os.path.join(project_root, global_config.get("lib_path"))
+LIB_DIR = os.path.join(project_root, global_config.get("libs_path"))
 DATA_DIRS = [
     os.path.join(project_root, predicting_path)
     for predicting_path in global_config.get("predicting_paths")

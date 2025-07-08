@@ -198,8 +198,7 @@ class PipelineManager(object):
             pipe_training_info = self.create_pipeline_training_info(pipe_details, pipe)
             pipelines[pipe_name] = {
                 "pipe": pipe, 
-                "training_info": pipe_training_info, 
-                # "freq_info": pipe_details.get("freq_info"),
+                "training_info": pipe_training_info
             }
         logger.info(f"✅ Pipelines created successfully")
         return pipelines  
@@ -218,7 +217,7 @@ class PipelineManager(object):
         instance = None
         try:
             class_elements = class_path.split(".")
-            module_name = "models_warehouse." + class_elements[0]
+            module_name = f"{self.global_config.get('models_path')}.{class_elements[0]}"
             module = importlib.import_module(module_name)
             the_class = getattr(module, class_elements[1])
             instance = the_class(**class_attributes)
