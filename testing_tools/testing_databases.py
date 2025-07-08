@@ -9,8 +9,13 @@
  '''
 
 from utils.logger_config import get_logger
-from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
-from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+try:
+    from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+    from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+    AITEA_CONNECTORS = True
+except ImportError:
+    logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
+    AITEA_CONNECTORS = False
 
 logger = get_logger()
 
@@ -33,12 +38,15 @@ def postgresql_query_test(query: str) -> object:
     return r
 
 if __name__ == "__main__":
-    influx_query = """from(bucket: "demo")
-        |> range(start: 1748736000, stop: 1748995200)
-        |> filter(fn: (r) => r._measurement == "measurement_1")
-        |> filter(fn: (r) => r._field == "field_12" or  r._field == "field_13")
-    """
-    logger.success(f"Results:\n{influx_query_test(influx_query)}")
+    if AITEA_CONNECTORS:
+        influx_query = """from(bucket: "demo")
+            |> range(start: 1748736000, stop: 1748995200)
+            |> filter(fn: (r) => r._measurement == "measurement_1")
+            |> filter(fn: (r) => r._field == "field_12" or  r._field == "field_13")
+        """
+        logger.success(f"✅ InfluxDB results:\n{influx_query_test(influx_query)}")
 
-    postgresql_query = """SELECT * FROM demo LIMIT 100"""
-    logger.success(f"Results:\n{postgresql_query_test(postgresql_query)}")
+        postgresql_query = """SELECT * FROM demo LIMIT 100"""
+        logger.success(f"✅ PostgreSQL results:\n{postgresql_query_test(postgresql_query)}")
+    else:
+        logger.warning(f"⚠️ No AITEA_CONNECTORS available to test")
