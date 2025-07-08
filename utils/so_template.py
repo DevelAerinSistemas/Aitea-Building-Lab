@@ -1,7 +1,20 @@
+from dotenv import load_dotenv
+load_dotenv()
+import os
 import base64
 import dill
 import pandas as pd  # Import pandas
 import logging
+
+from utils.file_utils import load_json_file
+
+try:
+    from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+    from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+    AITEA_CONNECTORS = True
+except ImportError:
+    logging.warning(f"Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
+    AITEA_CONNECTORS = False
 
 def load_pipeline():
     pipe_data_base64 = "{pipe_data_base64}"
@@ -9,6 +22,7 @@ def load_pipeline():
     pipeline = dill.loads(pipe_data)
     return pipeline
 pipeline = load_pipeline()
+
 
 class PipeExecutor:
     '''
@@ -26,9 +40,32 @@ class PipeExecutor:
             get_matrix(): Extracts and returns data matrices from the pipeline's steps.
             get_pipe_info(): Returns information about the pipeline's structure and components.
     '''
-    def __init__(self):
+    def __init__(self, connections_path: str = ""):
         self.pipe = pipeline
+        if os.path.exists(connections_path):
+            os.environ["CONNECTIONS_PATH"] = connections_path
+        self.connections = self._create_connections()
     
+    def _create_connections(self):
+        connections = {}
+        if AITEA_CONNECTORS:
+            for conn_name in set(self.pipe.get("training_info"))-{"local"}:
+                if conn_name == "influxdb":
+                    connections[conn_name] = {"connector": InfluxDBConnector()}
+                elif conn_name == "postgresql":
+                    connections[conn_name] = {"connector": PostgreSQLConnector()}
+                connections[conn_name].update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+        return connections
+
+    def get_connections(self):
+        return self.connections
+
+    def get_influxdb_connector(self):
+        return self.connections.get("influxdb")
+    
+    def get_postgresql_connector(self):
+        return self.connections.get("postgresql")
+
     def get_influxdb_query(self):
         query = self.pipe.get("training_info",{}).get("influxdb")
         if query:

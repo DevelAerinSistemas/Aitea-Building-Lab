@@ -38,7 +38,6 @@ def create_so(
     models_path = global_config.get("models_path")
     libs_path = global_config.get("libs_path")
 
-
     with open(model_path, "rb") as f:
         pipe_data = f.read()
         pipe_data_base64 = base64.b64encode(pipe_data).decode("utf-8")
@@ -62,20 +61,20 @@ def create_so(
         "--remove-output"
     ]
     try:
-        logger.info(f"Running command: {' '.join(command)}")
+        logger.info(f"⚙️ Running command: {' '.join(command)}")
         result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        logger.success("Command executed successfully")
+        logger.success("✅ Command executed successfully")
         if result.stdout:
-            logger.info(f"Standard Output: {result.stdout}")
+            logger.info(f"💬 Standard Output: {result.stdout}")
         if result.stderr:
-            logger.warning(f"Standard Error Informational/Verbose Output: {result.stderr}")
+            logger.warning(f"⚠️ Standard Error Informational/Verbose Output: {result.stderr}")
     except subprocess.CalledProcessError as err:
-        logger.error(f"Command failed with exit code {err.returncode}")
-        logger.error(f"Command: {' '.join(err.cmd)}")
+        logger.error(f"❌ Command failed with exit code {err.returncode}")
+        logger.error(f"❌ Command: {' '.join(err.cmd)}")
         if err.stdout:
-            logger.error(f"Standard Output (from failed command):\n{err.stdout}")
+            logger.error(f"❌ Standard Output (from failed command):\n{err.stdout}")
         if err.stderr:
-            logger.error(f"Standard Error (from failed command):\n{err.stderr}")
+            logger.error(f"❌ Standard Error (from failed command):\n{err.stderr}")
     finally:
         # Clean up the temporary file
         import os
@@ -85,10 +84,10 @@ def create_so(
             files = glob.glob("lib/*.pyi")
             for file in files:
                 os.remove(file)
-            logger.info("Temporary file removed.")
+            logger.info(f"💬 Temporary file '{file}' removed.")
 
 
 if __name__ == "__main__":
     # Example usage
     create_so(model_path = "training_models/consumption_analysis.pkl")
-    logger.info("SO file created successfully.")
+    logger.success("✅ SO file created successfully.")

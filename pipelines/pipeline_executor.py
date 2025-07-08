@@ -74,14 +74,14 @@ class PipelineManager(object):
                     if os.path.exists(folder):
                         connections[conn_name].append(folder)
                     else:
-                        logger.warning(f"⚠️ Folder '{folder}' for training files does not exixt")
+                        logger.warning(f"⚠️ Folder '{folder}' for training files does not exist")
             elif AITEA_CONNECTORS:
                 if conn_name == "influxdb":
                     connections[conn_name] = {"connector": InfluxDBConnector()}
-                    connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+                    connections[conn_name].update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
                 elif conn_name == "postgresql":
                     connections[conn_name] = {"connector": PostgreSQLConnector()}
-                    connections.update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
+                    connections[conn_name].update(zip(("connection_status","connection_client"),connections[conn_name]["connector"].connect()))
                 else:
                     logger.warning(f"⚠️ Datasource of type '{conn_name}' is not implemented yet")
             else:
@@ -248,11 +248,11 @@ class PipelineExecutor(PipelineManager):
         self.save_in_joblib = save_in_joblib
         
     @logger.catch
-    def data_preparation(self, pipeline: Pipeline, training_info: dict) -> pd.DataFrame:
+    def data_preparation(self, pipe: Pipeline, training_info: dict, **kwargs) -> pd.DataFrame:
         """Prepare data for the pipeline execution.
 
         Args:
-            pipeline (Pipeline): Pipeline
+            pipe (Pipeline): Pipeline
             training_info (dict): Pipeline data containing the queries and data origins
 
         Returns:
@@ -260,23 +260,22 @@ class PipelineExecutor(PipelineManager):
         """
         data = None
         try:
-            for step_name, step_instance in pipeline.named_steps.items():
+            for step_name, step_instance in pipe.named_steps.items():
                 if "MetaFuse" in [step_instance_parent.__name__ for step_instance_parent in step_instance.__class__.__bases__]:
                     data = step_instance.fuse_data_sources(
                         connections = self.connections,
                         training_info = training_info
                     )
         except Exception as err:
-            logging.warning(f"Error preparing data for pipeline {pipeline}: {err}")
+            logging.warning(f"❌ Error preparing data for pipeline {pipe}: {err}")
         else:
             if data is None:
-                logger.warning("Training data is not available")
+                logger.warning("⚠️ Training data is not available")
         finally:
             return data
         
-
     @logger.catch
-    def pipes_executor(self, testing: bool = False):
+    def pipes_executor(self, testing: bool = False) -> None:
         """Executes the pipeline tasks using multiprocessing.
 
         Args:
@@ -285,10 +284,7 @@ class PipelineExecutor(PipelineManager):
         with multiprocessing.Pool(processes=self.total_processing) as pool:
             for pipe_name, pipe_info in self.pipelines.items():
                 logger.info(f"⚙️ Starting pipeline task '{pipe_name}'")
-                data = self.data_preparation(
-                    pipeline = pipe_info.get("pipe"),
-                    training_info = pipe_info.get("training_info",{})
-                )
+                data = self.data_preparation(**pipe_info)
                 if data is None:
                     logger.warning("⚠️ Empty data, can't do training")
                     continue

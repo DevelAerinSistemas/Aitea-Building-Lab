@@ -299,17 +299,21 @@ if __name__ == "__main__":
         logger.info("🚀 Aitea Building Lab Demo test launched!")
 
         # Configuration
+        global_config_path = os.getenv('CONFIG_PATH')
         demo_conf = load_json_file("config/demo.json")
         demo_pipe_plan_path = demo_conf.get("pipe_plan_path")
         demo_pipe_plan = load_json_file(demo_pipe_plan_path).get("demo")
-        logger.success(f"✅ Configuration loaded successfully from {os.getenv('CONFIG_PATH')}")
+        demo_filename = "demo_data.csv"
+        demo_training_filepath = os.path.join("training_files", demo_filename)
+        demo_predicting_filepath = os.path.join("predicting_files", demo_filename)
+        logger.success(f"✅ Configuration loaded successfully from '{global_config_path}'")
         
         # Creating demo data
         path = demo_conf.get("data").get("path")
         generate_demo_data(demo_conf.get("data"))
         demo_df = pd.read_csv(path, skiprows=3).drop(columns=["Unnamed: 0"])
-        demo_df.to_csv(os.path.join("training_files","demo_data.csv"), index=False)
-        demo_df.to_csv(os.path.join("predicting_files","demo_data.csv"), index=False)
+        demo_df.to_csv(demo_training_filepath, index=False)
+        demo_df.to_csv(demo_predicting_filepath, index=False)
         logger.success(f"✅ Demo data correctly generated. Sneak peek:\n{demo_df.head()}")
 
         if AITEA_CONNECTORS:
@@ -343,9 +347,19 @@ if __name__ == "__main__":
         pipe.pipes_executor(testing=False)
         logger.success("✅ Pipeline execution was successful")
 
+        # Importing demo library and testing it
+        from lib import demo
+        demo_pipe = demo.PipeExecutor(global_config_path)
+        logger.info(f"💬 Connections:\n{demo_pipe.get_connections()}")
+        logger.info(f"💬 Training info:\n{demo_pipe.get_training_info()}")
+        logger.info(f"💬 All attributes:\n{demo_pipe.get_all_attributes()}")
+        logger.info(f"💬 All class attributes:\n{demo_pipe.get_all_class_attributes()}")
+        logger.info(f"💬 Predicting results:\n{demo_pipe.predict(X = pd.read_csv(demo_predicting_filepath))}")
+        logger.success("✅ Importing pipeline as SO and using it was successful")
+
     except Exception as err:
         logger.error(f"❌ Error found when running test: {err}")
     else:
         logger.success("🎉 Aitea Building Lab Demo test was a success!")
     finally:
-        logger.success("✅ Aitea Building Lab Demo test completed")
+        logger.info("🏁 Aitea Building Lab Demo test completed")
