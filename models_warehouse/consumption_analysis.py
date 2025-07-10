@@ -11,7 +11,8 @@
  '''
 
 
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 from typing import Any
 import pandas as pd
 import time
@@ -353,13 +354,12 @@ class ConsumptionAnalysis(MetaModel):
 
 
 if __name__ == "__main__":
-    from database_tools.influxdb_connector import InfluxDBConnector
+    from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
     from utils.file_utils import load_json_file
     from dotenv import load_dotenv
     import os
     import pickle
 
-    data_conection = load_json_file(os.getenv("GLOBAL_DATA"))
     query_dict = dict()
     query_dict["bucket"] = {"bucket": "recoletos_37"}
     query_dict["range"] = {
@@ -371,9 +371,8 @@ if __name__ == "__main__":
         "every": "1h", "function": "max", "create_empty": "true"}
     query_dict["fill"] = {"columns": "_value", "previous": "true"}
     query_dict["difference"] = {"non_negative": "true"}
-    influx = InfluxDBConnector(data_conection)
-    influx.load_configuration()
-    influx.connect(True)
+    influx = InfluxDBConnector()
+    influx.connect()
     query_flux = influx.compose_influx_query_from_dict(query_dict)
     data = influx.query(query=query_flux, pandas=True)
     columns = ["_time", "bucket", "floor", "module", "_value"]
@@ -383,9 +382,8 @@ if __name__ == "__main__":
 
     # c_anal.upadate_default_values(z_score_threshold=17)
 
-    influx = InfluxDBConnector(data_conection)
-    influx.load_configuration()
-    influx.connect(True)
+    influx = InfluxDBConnector()
+    influx.connect()
     query_dict = dict()
     query_dict["bucket"] = {"bucket": "recoletos_37"}
     query_dict["range"] = {

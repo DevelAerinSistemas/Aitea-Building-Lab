@@ -15,7 +15,8 @@ You should have received a copy of the GNU General Public License along with thi
 
 import base64
 import subprocess
-from loguru import logger
+from utils.logger_config import get_logger
+logger = get_logger()
 
 @logger.catch
 def create_so(
@@ -31,7 +32,11 @@ def create_so(
     from dotenv import load_dotenv
     import os
     load_dotenv()
+    from utils.file_utils import load_json_file
     python_env = os.getenv("PYTHON_ENV")
+    global_config = load_json_file(os.getenv("CONFIG_PATH"))
+    models_path = global_config.get("models_path")
+    libs_path = global_config.get("libs_path")
 
     with open(model_path, "rb") as f:
         pipe_data = f.read()
@@ -48,28 +53,28 @@ def create_so(
     command = [
         f"{python_env}/bin/nuitka",
         "--module", name_py,
-        "--include-package=models_warehouse",
+        f"--include-package={models_path}",
         "--include-package=metaclass",
         "--include-package=utils",
         "--show-modules",
-        "--output-dir=lib",
+        f"--output-dir={libs_path}",
         "--remove-output"
     ]
     try:
-        logger.info(f"Running command: {' '.join(command)}")
+        logger.info(f"⚙️ Running command: {' '.join(command)}")
         result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        logger.success("Command executed successfully")
+        logger.success("✅ Command executed successfully")
         if result.stdout:
-            logger.info(f"Standard Output: {result.stdout}")
+            logger.info(f"💬 Standard Output: {result.stdout}")
         if result.stderr:
-            logger.warning(f"Standard Error Informational/Verbose Output: {result.stderr}")
+            logger.warning(f"⚠️ Standard Error Informational/Verbose Output: {result.stderr}")
     except subprocess.CalledProcessError as err:
-        logger.error(f"Command failed with exit code {err.returncode}")
-        logger.error(f"Command: {' '.join(err.cmd)}")
+        logger.error(f"❌ Command failed with exit code {err.returncode}")
+        logger.error(f"❌ Command: {' '.join(err.cmd)}")
         if err.stdout:
-            logger.error(f"Standard Output (from failed command):\n{err.stdout}")
+            logger.error(f"❌ Standard Output (from failed command):\n{err.stdout}")
         if err.stderr:
-            logger.error(f"Standard Error (from failed command):\n{err.stderr}")
+            logger.error(f"❌ Standard Error (from failed command):\n{err.stderr}")
     finally:
         # Clean up the temporary file
         import os
@@ -79,10 +84,10 @@ def create_so(
             files = glob.glob("lib/*.pyi")
             for file in files:
                 os.remove(file)
-            logger.info("Temporary file removed.")
+            logger.info(f"💬 Temporary file '{file}' removed.")
 
 
 if __name__ == "__main__":
     # Example usage
     create_so(model_path = "training_models/consumption_analysis.pkl")
-    logger.info("SO file created successfully.")
+    logger.success("✅ SO file created successfully.")

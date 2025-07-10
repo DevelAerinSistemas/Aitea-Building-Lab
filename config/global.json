@@ -1,0 +1,63 @@
+{
+    "data_sources": [
+        "influxdb",
+        "postgresql",
+        "local"
+    ],
+    "influxdb": {
+        "token": "NMGo1rcZNSiLUNdnU2x0zMzyAq-FGu9kOm1iezAWUFxyO9LQLmBLNDcOTL_UyCqQuSz71DO37Q1ZeY4O3-3AOw==",
+        "org": "Aitea_2",
+        "host": "localhost",
+        "port": "8086",
+        "queries": {
+            "general_query": "from(bucket: \"{bucket}\") |> range(start: {start}, stop: {stop})",
+            "pivot": "|> pivot(rowKey: {row_key}, columnKey: {column_key}, valueColumn: \"{value}\")",
+            "bucket": "from(bucket: \"{bucket}\")",
+            "range": "|> range(start: {start}, stop: {stop})",
+            "filter_system_id": "|> filter(fn: (r) => r.system_id == \"{system_id}\")",
+            "filter_measurement": "|> filter(fn: (r) => r._measurement == \"{measurement}\")",
+            "filter_not_measurement": "|> filter(fn: (r) => r._measurement != \"{measurement}\")",
+            "filter_element": "|> filter(fn: (r) => r.element == \"{element}\")",
+            "filter_type": "|> filter(fn: (r) => r.type == \"{type}\")",
+            "filter_field": "|> filter(fn: (r) => r._field == \"{field}\")",
+            "filter_not_field": "|> filter(fn: (r) => r._field != \"{field}\")",
+            "tag_is": "|> filter(fn: (r) => r[\"{tag_name}\"] == \"{tag_value}\")",
+            "tag_is_not": "|> filter(fn: (r) => r.{tag_name} != \"{tag_value}\")",
+            "keep_columns": "|> keep(columns: {columns})",
+            "schema": "import \"influxdata/influxdb/schema\" \nschema.fieldKeys(bucket: \"{schema_bucket}\", start: -100d)",
+            "last_hours": "|> range(start: {start})",
+            "bewteen_values_included_filter": "|> filter(fn: (r) => r._value >= {min_value} and r._value <= {max_value})",
+            "bewteen_values_not_included_filter": "|> filter(fn: (r) => r._value > {min_value} and r._value < {max_value})",
+            "window_aggregation": "|> aggregateWindow(every: {every}, fn: {function}, createEmpty: {create_empty}) \n|> yield(name: \"{function}\") \n|> pivot(rowKey:[\"{rowKey}\"], columnKey: [\"{columnKey}\"], valueColumn: \"{valueColumn}\")",
+            "contains": "|> filter(fn: (r) => contains(value: r.{tag_name}, set: {set})", 
+            "group": "|> group(columns: {columns})",
+            "sort": "|> sort(columns: {columns})",
+            "drop_columns": "|> drop(columns: {columns})",
+            "fill": "|> fill(column: \"{columns}\", usePrevious: {previous})",
+            "difference": "|> difference(nonNegative: {non_negative})"
+        },
+        "buckets_not_considered": [
+            "bucket_not_considered_1", 
+            "bucket_not_considered_2"
+        ]
+    },
+    "postgresql": {
+        "host": "localhost",
+        "port": 5432,
+        "username": "aitea_occupation",
+        "password": "p4ssw0rd_0ccup4t10n",
+        "db_name": "aitea_occupation",
+        "timeout": 10000,
+        "max_retries": 5,
+        "retry_delay": 5
+    },
+    "local": [
+        "training_files"
+    ],
+    "predicting_paths": [
+        "predicting_files"
+    ],
+    "libs_path": "lib",
+    "models_path": "models_warehouse",
+    "pipe_plan_path": "pipes_schedules/pipe_plan.json"
+}

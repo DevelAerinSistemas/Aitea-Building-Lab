@@ -18,14 +18,15 @@
 
 2. Python environment
     1. Create a virtual python environment with `python3 -m venv {environment_path}` (substitute `{environment_path}` by your actual path)
-    2. Modify the **.env** file variable `PYTHON_ENV` with the path of the virtual python environment just created
-    3. Activate your python environment using `source {environment_path}/bin/activate`
-    4. Install python dependencies from **/config/requirements.txt** using `pip3 install -r /config/requirements.txt` (executed from project root path)
+    2. Clone the repository using `git clone --recurse-submodules {repository_url}` (substitute `{repository_url}` by current **AItea Building Lab** repository, normally would be `https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab.git`). The flag `--recurse-submodules` is to include automatically submodules.
+    3. Modify the **.env** file variable `PYTHON_ENV` with the path of the virtual python environment just created
+    4. Activate your python environment using `source {environment_path}/bin/activate`
+    5. Install python dependencies from **/config/requirements.txt** using `pip3 install -r /config/requirements.txt` (executed from project root path)
 
 3. Setting up
-    1. The configuration file used by default is **config/global_config.json**. If needed something different, make your own version and modify the `CONFIG_PATH` variable in **.env** file.
-    2. Modify content for keys **influxdb** and **buckets_not_considered** in the configuration JSON to fit your InfluxDB connection and configuration. 
-    3. Keys **influx_queries** and **testing** contents must not be modified, since they include parameters for Flux queries automatic generation and general testing
+    1. The configuration file used by default is **config/global.json**. If needed something different, make your own version and modify the `CONFIG_PATH` variable in **.env** file.
+    2. Modify as well `CONNECTIONS_PATH`variable in **/aitea_connectors/.env** to point to the global configuration file of **AItea Building Lab** you included in the `CONFIG_PATH` variable in the last step.
+    3. Modify content for keys **influxdb** and **postresql** in the configuration JSON to fit your InfluxDB and PostgreSQL connections and configurations.
     4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
 
 4. Testing everything works with prepared test

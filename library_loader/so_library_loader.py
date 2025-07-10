@@ -14,17 +14,28 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
  '''
  
- 
-from database_tools.influxdb_connector import InfluxDBConnector
-from utils.file_utils import load_json_file
-
-
 import importlib
-from loguru import logger
 import datetime
 import pytz
 import json
+import re
 import pandas as pd
+
+from dotenv import load_dotenv
+load_dotenv()
+import os
+
+from utils.logger_config import get_logger
+logger = get_logger()
+from utils.file_utils import load_json_file
+
+try:
+    from aitea_connectors.connectors.influxdb_connector import InfluxDBConnector
+    from aitea_connectors.connectors.postgresql_connector import PostgreSQLConnector
+    AITEA_CONNECTORS = True
+except ImportError:
+    logger.warning(f"⚠️ Aitea Connectors are not available. Uncomplete functionality: only local files as a valid data source.")
+    AITEA_CONNECTORS = False
 
 class SOLibraryLoader:
     def __init__(self, name: str):
@@ -33,63 +44,166 @@ class SOLibraryLoader:
 
         Args:
             name (str): The name of the .so library (without the .so extension).
-        """
-        self.influxdb_conn = InfluxDBConnector()
-        influxdb_conn_status, influxdb_conn_client = self.influxdb_conn.connect()
-        self.name = name
-        self.exec = None
-        self.exec = self._load_library()
-    
-    def testing(self, stop_data: str, start_data: str) -> dict:
-        """
-        Placeholder for a testing method that you will implement.
-        """
-        results_dict = dict()
-        if self.exec is not None:
-            query = self.exec.get_query()
-            # Extraemos la query
-            prediction_dict = dict()
-            composed_query_list = self._compose_query(query, stop_data, start_data)
-            for one_query in composed_query_list:
-                one_query_copy = one_query.copy()
-                query = self.influxdb_conn.compose_influx_query_from_dict(one_query_copy)
-                data = self.influxdb_conn.query(query=query, pandas=True, stream=False)
-                logger.info(f"Model Info: {self.exec.get_info()}")
-                if data is not None and not data.empty:
-                    bucket = one_query.get("buckets", {}).get("bucket", "default_bucket")
-                    data.loc[:, "bucket"] = bucket
-                    # Se ejecuta la predicción para cada edificio
-                    one_prediction = self.exec.predict(data)
-                    prediction_dict[bucket] = one_prediction
-                    results_dict[bucket] = self.exec.get_results()
-        else:
-            logger.error("Executor class instance is not initialized.")
-        
-        return prediction_dict, results_dict
-            
-    def _compose_query(self, query: str, end_time: str, start_time: str) -> str:
-        """
-        Composes a query string with the provided start and end times.
-
-        Args:
-            query (str): The base query string.
-            start_time (str): The start time in ISO format.
-            end_time (str): The end time in ISO format.
 
         Returns:
-            str: The composed query string.
+            tuple: A tuple containing (results, result_matrix).
         """
-        queries_list = list()
-        buckets_list = query.get("buckets", [])
-        bucket_query = query
-        for one_bucket in buckets_list:
-            one_bucket_query = bucket_query.copy()
-            one_bucket_query.update({"buckets": {"bucket": one_bucket}})
-            one_bucket_query.update({"range": {"start": start_time, "stop": end_time}})
-            logger.info(f"Updated bucket query: {one_bucket_query}")
-            queries_list.append(one_bucket_query)
-        return queries_list
+        if AITEA_CONNECTORS:
+            self.influxdb_conn = InfluxDBConnector()
+            influxdb_conn_status, influxdb_conn_client = self.influxdb_conn.connect()
+            self.postgresql_conn = PostgreSQLConnector()
+            postgresql_conn_status, postgresql_conn_client = self.postgresql_conn.connect()
+        else:
+            self.influxdb_conn = None
+            self.postgresql_conn = None
+        self.name = name
+        self.exec = self._load_library()
     
+    def testing_predict_with_file(self, file_path: str) -> tuple:
+        """
+        Loads data from a local file, runs prediction, and returns results.
+        
+        Args:
+            file_path (str): The absolute path to the data file.
+            
+        Returns:
+            tuple: A tuple containing (results, result_matrix).
+        """
+        prediction_dict = dict()
+        results_dict = dict()
+        if self.exec is not None:
+            data_df = pd.DataFrame()
+            if file_path.endswith('.csv'):
+                data_df = pd.read_csv(file_path, index_col='timestamp', parse_dates=True)
+            elif file_path.endswith(".json"):
+                data_df = pd.read_json(datafile)
+            elif file_path.endswith(".xlsx") or file_path.endswith(".ods"):
+                data_df = pd.read_excel(datafile)
+            elif file_path.endswith('.parquet'):
+                data_df = pd.read_parquet(file_path)
+            else:
+                source_type = file_path.split(".")[-1]
+                logger.warning(f"⚠️ Reading data from source of type '{source_type}' not implemented yet")
+                raise ValueError(f"Unsupported file type for '{file_path}'")
+            if not data_df.empty:
+                try: 
+                    prediction_dict["demo"] = self.exec.predict(bucket_data)
+                    results_dict["demo"] = self.exec.get_results()
+                    logger.success(f"✅ Prediction complete for file: '{os.path.basename(file_path)}'")
+                except Exceptions as err:
+                    logger.error(f"❌ Uncontrolled error: {err}")
+                    raise Exception(f"Uncontrolled error: {err}")
+            else:
+                logger.warning(f"⚠️ Empty predicting data")
+                raise ValueError(f"Empty predicting datafile")
+        else:
+            logger.error("❌ Executor class instance is not initialized.")
+        return prediction_dict, results_dict
+
+    def testing_predict_with_postgresql(self, start_datetime: str, stop_datetime: str) -> tuple:
+        """
+        Predict new data using a library and two datetimes provided by GUI and data from PostgreSQL
+
+        Args:
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
+        """
+        prediction_dict = dict()
+        results_dict = dict()
+        if self.exec is not None:
+            training_info = self.exec.get_training_info()
+            if AITEA_CONNECTORS and training_info.get("postgresql"):
+                    postgresql_query = self._compose_sql_query(
+                        query = training_info.get("postgresql"),
+                        start_datetime = start_datetime,
+                        stop_datetime = stop_datetime
+                    )
+                    data = self.postgresql_conn.query_to_df(query = postgresql_query)
+                    logger.info(f"💬 Model Info: {self.exec.get_info()}")
+                    if data is not None and not data.empty:
+                        one_prediction = self.exec.predict(data)
+                        #TODO Change whenever PostgreSQL integration is complete
+                        prediction_dict["demo"] = one_prediction 
+                        results_dict["demo"] = self.exec.get_results()
+            else:
+                logger.warning(f"⚠️ Aitea Connectors are not available. InfluxDB not available as a datasource.")
+        else:
+            logger.error("❌ Executor class instance is not initialized.")
+        return prediction_dict, results_dict
+
+    def _compose_sql_query(self, query: str, start_datetime: str, stop_datetime: str) -> str:
+        """
+        Substitutes the start and stop values in the range() function of a SQL query.
+
+        Args:
+            query (str): The original SQL query string.
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
+
+        Returns:
+            str: The new SQL query with the updated start and stop times.
+        """ 
+        #TODO Change whenever PostgreSQL integration is complete
+        new_query = query
+        return new_query
+
+    def testing_predict_with_influx(self, start_datetime: str, stop_datetime: str) -> tuple:
+        """
+        Predict new data using a library and two datetimes provided by GUI and data from InfluxDB
+
+        Args:
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
+        """
+        prediction_dict = dict()
+        results_dict = dict()
+        if self.exec is not None:
+            training_info = self.exec.get_training_info()
+            if AITEA_CONNECTORS:
+                if training_info.get("influxdb"):
+                    influxdb_query = self._compose_flux_query(
+                        query = training_info.get("influxdb"),
+                        start_datetime = start_datetime,
+                        stop_datetime = stop_datetime
+                    )
+                    data = self.influxdb_conn.query(query=influxdb_query, pandas=True, stream=False)
+                    logger.info(f"💬 Model Info: {self.exec.get_info()}")
+                    if data is not None and not data.empty:
+                        for bucket in data["bucket"].unique():
+                            bucket_data = data[data["bucket"]==bucket].reset_index(drop=True)
+                            one_prediction = self.exec.predict(bucket_data)
+                            prediction_dict[bucket] = one_prediction
+                            results_dict[bucket] = self.exec.get_results()
+            else:
+                logger.warning(f"⚠️ Aitea Connectors are not available. InfluxDB not available as a datasource.")
+        else:
+            logger.error("❌ Executor class instance is not initialized.")
+        return prediction_dict, results_dict
+    
+    def _compose_flux_query(self, query: str, start_datetime: str, stop_datetime: str) -> str:
+        """
+        Substitutes the start and stop values in the range() function of a Flux query.
+
+        Args:
+            query (str): The original Flux query string.
+            start_datetime (int): The new integer timestamp for the 'start' value.
+            stop_datetime (int): The new integer timestamp for the 'stop' value.
+
+        Returns:
+            str: The new Flux query with the updated start and stop times.
+        """ 
+        new_query = re.sub(
+            pattern=r"(start\s*:\s*)\d+", 
+            repl=f'\\1time(v:"{start_datetime}")', 
+            string=query
+        )
+        new_query = re.sub(
+            pattern=r"(stop\s*:\s*)\d+", 
+            repl=f'\\1time(v:"{stop_datetime}")',
+            string=new_query
+        )
+        return new_query
+
     def analyze_lib(self):
         """Analyzes the loaded library and retrieves relevant information.
         """
@@ -103,9 +217,9 @@ class SOLibraryLoader:
                         logger.info(f"DataFrame columns: {one.columns.tolist()}")
                         logger.info(f"NaN values count:\n{one.isnull().sum()}")
                         for col in one.columns:
-                            logger.info(f"Column '{col}' unique values: {one[col].unique()}")  # Display first 5 unique values
+                            logger.info(f"💬 Column '{col}' unique values: {one[col].unique()}")  # Display first 5 unique values
         else:
-            logger.warning("No library loaded, cannot analyze.")
+            logger.warning("⚠️ No library loaded, cannot analyze.")
     
     def get_info(self):
         """
@@ -119,7 +233,7 @@ class SOLibraryLoader:
             info = self.exec.get_info()
            
         else:
-            logger.error("Executor class instance is not initialized.")
+            logger.error("❌ Executor class instance is not initialized.")
         return info
     
     def check_query(self):
@@ -127,29 +241,30 @@ class SOLibraryLoader:
         Checks the query and logs the result.
         """
         if self.exec is not None:
-            query = self.exec.get_query()
-            logger.info(f"Checked query: {query}")
+            query = self.exec.get_training_info()
+            logger.info(f"🔍 Checked query:\n{training_info}")
         else:
-            logger.error("Executor class instance is not initialized.")
+            logger.error("❌ Executor class instance is not initialized.")
     
     def _load_library(self):
-       """
-       Loads the .so library using importlib.
-       Returns:
-           module: The loaded module, or None if loading fails.
-       """
-       module_name = f"lib.{self.name}"
-       try:
-           module = importlib.import_module(module_name)
-           ExecutorClass = getattr(module, "PipeExecutor", None)
-           executor_class_instance = ExecutorClass()
-          
-       except ImportError as e:
-           logger.error(f"Failed to load library {module_name}: {e}")
-           raise FileNotFoundError(f"Library {module_name} not found.")
-       else:
-           logger.info(f"Library {module_name} loaded successfully.")
-           logger.info(f"Executor class found: {ExecutorClass.__name__ if ExecutorClass else 'None'}")
-           logger.info(f"Library info: {ExecutorClass.__doc__}")
-           logger.info(f"Library info: {executor_class_instance.get_info()}")
-           return executor_class_instance
+        """
+        Loads the .so library using importlib.
+        Returns:
+            module: The loaded module, or None if loading fails.
+        """
+        module_name = f"lib.{self.name}"
+        executor_class_instance = None
+        try:
+            module = importlib.import_module(module_name)
+            ExecutorClass = getattr(module, "PipeExecutor", None)
+            executor_class_instance = ExecutorClass()
+        except ImportError as e:
+            logger.error(f"❌ Failed to load library {module_name}: {e}")
+            raise FileNotFoundError(f"Library {module_name} not found.")
+        else:
+            logger.info(f"✅ Library {module_name} loaded successfully.")
+            logger.info(f"🔍 Executor class found: {ExecutorClass.__name__ if ExecutorClass else 'None'}")
+            logger.info(f"💬 Library info: {ExecutorClass.__doc__}")
+            logger.info(f"💬 Library info: {executor_class_instance.get_info()}")
+        finally:
+            return executor_class_instance
