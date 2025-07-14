@@ -46,8 +46,3 @@ launch.json
 *.tmp
 *temporal*
 *old*
-
-# Docuementación generada
-*.html
-*.pdf
-*.md
