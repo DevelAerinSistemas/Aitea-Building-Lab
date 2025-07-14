@@ -5,9 +5,9 @@
         "local"
     ],
     "influxdb": {
-        "token": "NMGo1rcZNSiLUNdnU2x0zMzyAq-FGu9kOm1iezAWUFxyO9LQLmBLNDcOTL_UyCqQuSz71DO37Q1ZeY4O3-3AOw==",
-        "org": "Aitea_2",
-        "host": "localhost",
+        "token": "token_de_influxdb",
+        "org": "my_org",
+        "host": "influx_host_ip",
         "port": "8086",
         "queries": {
             "general_query": "from(bucket: \"{bucket}\") |> range(start: {start}, stop: {stop})",
@@ -42,11 +42,11 @@
         ]
     },
     "postgresql": {
-        "host": "localhost",
+        "host": "postgres_host_ip",
         "port": 5432,
-        "username": "aitea_occupation",
-        "password": "p4ssw0rd_0ccup4t10n",
-        "db_name": "aitea_occupation",
+        "username": "user_name",
+        "password": "one_password_value",
+        "db_name": "database_name",
         "timeout": 10000,
         "max_retries": 5,
         "retry_delay": 5
