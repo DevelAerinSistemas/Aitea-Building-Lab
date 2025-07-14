@@ -1,0 +1,46 @@
+{
+    "demo": {
+        "steps": {
+            "demo.DemoFuse": {
+                "postgresql": {
+                    "table": "demo",
+                    "filter_field": "field_21",
+                    "filter_value": 500.0,
+                    "limit": 100
+                }
+            },
+            "demo.DemoTransform": {
+                "example_parameter": 1.0
+            },
+            "demo.DemoModel": {
+                "example_parameter": 2.0
+            }
+        },
+        "data_sources": {
+            "influxdb": {
+                "buckets": [
+                    "demo"
+                ],
+                "range": {
+                    "start": "2025-06-01T00:00:00.000Z", 
+                    "stop": "2025-06-04T00:00:00.000Z"
+                },
+                "filter_measurement": {
+                    "measurement": "measurement_1"
+                }, 
+                "filter_field": [
+                    {"field": "field_12"}, 
+                    {"field": "field_13"} 
+                ]
+            },
+            "postgresql": [
+                "SELECT * from {table}",
+                "WHERE {filter_field} > {filter_value}",
+                "LIMIT {limit}"
+            ],
+            "local": [
+                "demo_data.csv"
+            ]
+        }
+    }
+}
