@@ -27,7 +27,7 @@
     1. The configuration file used by default is **config/global.json**. If needed something different, make your own version and modify the `CONFIG_PATH` variable in **.env** file.
     2. Modify as well `CONNECTIONS_PATH`variable in **/aitea_connectors/.env** to point to the global configuration file of **AItea Building Lab** you included in the `CONFIG_PATH` variable in the last step.
     3. Modify content for keys **influxdb** and **postresql** in the configuration JSON to fit your InfluxDB and PostgreSQL connections and configurations.
-    4. Read carefully [project's wiki](https://gitlab.aerin.es/ai/aitea-building/aitea-building-lab/-/wikis/Gu%C3%ADa) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
+    4. Read carefully [project's wiki](https://github.com/DevelAerinSistemas/Aitea-Building-Lab) to understand how to develop a transformation/model (stored at **models_warehouse/**) and include it in the pipeline execution (in file **pipes_schedules/pipe_plan.json**).
 
 4. Testing everything works with prepared test
     1. Familiarize yourself with code from *DemoTransform* and *DemoModel* classes from **models_warehouse/demo.py** 
